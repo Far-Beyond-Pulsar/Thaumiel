@@ -25,9 +25,16 @@ fn candidates(request_path: &str) -> Vec<String> {
 fn asset_response(path: &str) -> Option<Response> {
     let file = Assets::get(path)?;
     let mime = file.metadata.mimetype();
-    let mut response = Response::builder().status(StatusCode::OK).body(Body::from(file.data.into_owned())).unwrap();
+    let mut response = Response::builder()
+        .status(StatusCode::OK)
+        .body(Body::from(file.data.into_owned()))
+        .unwrap();
 
-    response.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_str(mime).unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")));
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(mime)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
 
     // Next.js content-hashes everything under _next/static/, so it's safe --
     // and worth it for a dashboard someone reloads often -- to cache those
@@ -38,7 +45,10 @@ fn asset_response(path: &str) -> Option<Response> {
     } else {
         "no-cache"
     };
-    response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static(cache_control));
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static(cache_control),
+    );
 
     Some(response)
 }

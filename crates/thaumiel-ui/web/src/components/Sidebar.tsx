@@ -10,6 +10,7 @@ import {
   PanelLeftOpen,
   ScrollText,
   Settings,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,6 +22,7 @@ const NAV = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/licenses", label: "Licenses", icon: KeyRound },
   { href: "/api-keys", label: "API Keys", icon: Fingerprint },
+  { href: "/team", label: "Team", icon: Users },
   { href: "/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

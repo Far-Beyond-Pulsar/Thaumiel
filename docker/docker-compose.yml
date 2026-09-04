@@ -1,8 +1,9 @@
-# Brings up all three real SQL backends plus Redis so every backend claimed
-# in docs/ARCHITECTURE.md can actually be exercised locally, not just SQLite.
+# Brings up every real SQL backend claimed in docs/ARCHITECTURE.md plus
+# Redis, so all of them can actually be exercised locally, not just SQLite.
 # The `server` service runs against postgres+redis by default; swap
 # THAUMIEL_DATABASE__BACKEND / THAUMIEL_DATABASE__URL to point it at `mysql`
-# instead (both are always running, so no compose profile juggling needed).
+# or `mssql` instead (all are always running, so no compose profile juggling
+# needed).
 #
 #   docker compose -f docker/docker-compose.yml up --build
 #
@@ -44,6 +45,22 @@ services:
       timeout: 5s
       retries: 10
 
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Thaumiel_Dev_Pw1"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     ports:
@@ -72,7 +89,14 @@ services:
       # Stable keys so ed25519/hmac-issued license keys survive a container restart.
       THAUMIEL_KEYGEN_ED25519_SECRET: "0000000000000000000000000000000000000000000000000000000000aa"
       THAUMIEL_KEYGEN_HMAC_SECRET: "00000000000000000000000000000000000000000000000000000000bbbb"
+      # SAML is built into this image (see docker/Dockerfile) but unconfigured
+      # by default -- uncomment and point at a real IdP to use
+      # /v1/auth/login/saml/*; see docs/CONFIGURATION.md.
+      # THAUMIEL_SAML_SP_ENTITY_ID: "https://your-thaumiel-host/v1/auth/login/saml/metadata"
+      # THAUMIEL_SAML_ACS_URL: "https://your-thaumiel-host/v1/auth/login/saml/acs"
+      # THAUMIEL_SAML_IDP_METADATA_URL: "https://your-idp/metadata"
 
 volumes:
   postgres-data:
   mysql-data:
+  mssql-data:

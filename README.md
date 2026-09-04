@@ -1,4 +1,24 @@
-# Thaumiel
+<div align="right">
+<img align="right" src="https://github.com/user-attachments/assets/877182b7-98e1-4ef0-8ced-b8316e15c311" alt="Thaumiel Logo" width="200"/>
+</div>
+
+# Thaumiel: Hypermodular License Key Server
+
+<p align="left">
+  <strong>A Rust license key server where storage, cache, auth, and key format are all plugins — not a fork</strong>
+</p>
+
+<p align="left">
+  <a href="#whats-actually-in-here">Features</a> •
+  <a href="#running-it">Quick Start</a> •
+  <a href="#a-five-minute-walkthrough">Walkthrough</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="docs/API.md">API</a> •
+  <a href="#configuring-it">Configuration</a> •
+  <a href="#writing-a-plugin">Plugins</a> •
+  <a href="#testing">Testing</a> •
+  <a href="#license">License</a>
+</p>
 
 A license key server, written in Rust, built around one idea: almost nothing about how you issue and check licenses should be hardcoded. Which database you use, which key format your product ships with, how your admins log in — all of that is a plugin choice, not a fork.
 
@@ -6,15 +26,15 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
 
 ## What's actually in here
 
-- **Storage**: PostgreSQL, MySQL/MariaDB, SQLite, and an in-memory backend for tests, all implementing the same `Storage` trait, all runnable side by side.
+- **Storage**: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, and an in-memory backend for tests, all implementing the same `Storage` trait, all runnable side by side.
 - **Cache**: Redis or a process-local in-memory cache. Used for rate limiting and readiness checks today; the trait is small enough to extend.
-- **Auth**: Argon2id password hashing, JWT admin sessions, and hashed API keys for machine callers — plus an `AuthProvider` trait so OIDC/SAML/LDAP can slot in later without touching route handlers.
+- **Auth**: Argon2id password hashing, JWT admin sessions, hashed API keys for machine callers, LDAP/Active Directory login, OIDC token verification, and SAML 2.0 SSO (real XML-DSig signature verification, not a stub — cargo feature `saml`, off by default since it needs native `libxml2`/`xmlsec1`; on by default in the Docker image). See `docs/CONFIGURATION.md`.
 - **License key generation**: three built-in backends —
   - `ed25519` — signed, offline-verifiable keys. A licensed application can check one without calling home.
   - `hmac` — human-typable `HM-XXXX-XXXX-...` keys with an embedded checksum, the format most people picture when they hear "license key."
   - `opaque` — a plain random token, validated purely by database lookup. The simplest possible option, and the default.
 - **Everything above is a compile-time plugin.** No dynamic loading, no unsafe ABI, no runtime crashes from a mismatched plugin build — just a Rust trait implementation that self-registers when its crate is linked in. See [`docs/PLUGINS.md`](docs/PLUGINS.md).
-- Seat-limited activations, an audit log, Prometheus metrics at `/metrics`, structured tracing, and a config system layered from file to environment variables.
+- Seat-limited activations (with a dedicated endpoint to free one without revoking the whole license), an audit log, per-org usage metering (`GET /v1/usage`), Prometheus metrics at `/metrics`, structured tracing, and a config system layered from file to environment variables.
 - **A web dashboard** (`thaumiel-ui`) — a Next.js admin UI, statically exported and embedded into its own standalone Rust binary. One executable, no Node runtime required to run it, points at any Thaumiel API via config. See [`crates/thaumiel-ui/README.md`](crates/thaumiel-ui/README.md).
 
 ## Architecture
@@ -25,7 +45,7 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
 crates/
   thaumiel-core/      domain types, error type, plugin traits, the registry itself
   thaumiel-config/     layered TOML + env configuration
-  thaumiel-storage/    Storage impls: postgres, mysql, sqlite, memory
+  thaumiel-storage/    Storage impls: postgres, mysql, mssql, sqlite, memory
   thaumiel-cache/      Cache impls: redis, memory
   thaumiel-auth/       Argon2id passwords, JWT sessions, API keys, InternalAuthProvider
   thaumiel-keygen/     Ed25519, HMAC, and opaque keygen backends
@@ -54,13 +74,13 @@ curl http://localhost:8080/v1/keygen-backends
 
 ### The full stack
 
-To exercise Postgres, MySQL, and Redis instead of the defaults:
+To exercise Postgres, MySQL, SQL Server, and Redis instead of the defaults:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-That brings up all three databases plus Redis and a server pointed at Postgres. MySQL stays reachable on its normal port the whole time too, if you want to point a local run at it directly (`THAUMIEL_DATABASE__BACKEND=mysql THAUMIEL_DATABASE__URL=mysql://thaumiel:thaumiel@localhost:3306/thaumiel cargo run -p thaumiel-server`).
+That brings up all four databases plus Redis and a server pointed at Postgres. The other two stay reachable on their normal ports the whole time too, if you want to point a local run at either directly, e.g. `THAUMIEL_DATABASE__BACKEND=mysql THAUMIEL_DATABASE__URL=mysql://thaumiel:thaumiel@localhost:3306/thaumiel cargo run -p thaumiel-server`.
 
 ### The dashboard
 
@@ -138,11 +158,7 @@ Add the crate as a dependency of `thaumiel-server`, and it shows up in `GET /v1/
 cargo test --workspace
 ```
 
-runs unit tests for password hashing, JWT round-trips, API key generation, and all three keygen backends, plus one end-to-end integration test that drives the full HTTP API — register, login, create a product, generate a license, mint an API key, validate — against `InMemoryStorage`, no external services required. `cargo clippy --workspace --all-targets` is clean.
-
-## Roadmap
-
-Documented rather than hidden: OIDC/SAML/LDAP auth providers, dynamic or WASM plugin loading (deliberately not chosen for this build — see `docs/ARCHITECTURE.md` for why), multi-tenant billing and usage metering, an admin web UI, and a SQL Server storage backend are all out of scope for now. The trait boundaries are already where they'd need to be for most of that to land as an addition, not a rewrite.
+runs unit tests for password hashing, JWT round-trips, API key generation, and all built-in keygen backends, plus a handful of end-to-end integration tests that drive the full HTTP API — registration, license-manager API keys, pagination, team invites, usage metering — against `InMemoryStorage`, no external services required. `cargo clippy --workspace --all-targets` is clean. `--features saml` needs `libxml2`/`xmlsec1` installed first (see `docs/CONFIGURATION.md`) and isn't part of the default `cargo test --workspace` run.
 
 ## License
 

@@ -9,6 +9,10 @@
 [server]
 bind = "0.0.0.0"
 port = 8080
+# Empty = permissive CORS (every origin, no config needed for local dev).
+# Set an explicit allow-list before exposing this to a browser you don't
+# control -- see docs/DEPLOYMENT.md.
+cors_allowed_origins = []
 
 [database]
 # One of: "postgres", "mysql", "sqlite", "memory".

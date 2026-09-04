@@ -18,6 +18,11 @@ pub enum Credentials {
         password: String,
     },
     OidcToken {
+        /// Same reasoning as `Password::org_id`: which org a login is
+        /// scoped to is a fact the request supplies, not something inferred
+        /// from the token alone -- keeps every provider consistent about it
+        /// rather than OIDC being a special case with implicit global scope.
+        org_id: OrganizationId,
         id_token: String,
     },
 }

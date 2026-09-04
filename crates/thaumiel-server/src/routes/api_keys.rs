@@ -1,4 +1,4 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use chrono::Utc;
 
@@ -12,6 +12,7 @@ use crate::audit;
 use crate::dto::{CreateApiKeyRequest, CreateApiKeyResponse};
 use crate::error::ApiResult;
 use crate::extractors::AdminAuth;
+use crate::pagination::PageQuery;
 use crate::state::AppState;
 
 pub async fn create(
@@ -49,10 +50,11 @@ pub async fn create(
 pub async fn list(
     State(state): State<AppState>,
     AdminAuth(identity): AdminAuth,
+    Query(page): Query<PageQuery>,
 ) -> ApiResult<Json<Vec<ApiKey>>> {
     let keys = state
         .storage
-        .list_api_keys(identity.org_id, Pagination::default())
+        .list_api_keys(identity.org_id, page.into())
         .await?;
     Ok(Json(keys))
 }

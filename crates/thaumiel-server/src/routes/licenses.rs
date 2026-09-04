@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use chrono::Utc;
 
 use thaumiel_core::ids::{ActivationId, LicenseId};
 use thaumiel_core::models::{Activation, LicenseKey, LicenseStatus};
-use thaumiel_core::traits::{GenerateRequest, Pagination, ValidateContext, Validation};
+use thaumiel_core::traits::{GenerateRequest, ValidateContext, Validation};
 use thaumiel_core::ThaumielError;
 
 use crate::audit;
 use crate::dto::{GenerateLicenseRequest, ValidateLicenseRequest, ValidateLicenseResponse};
 use crate::error::ApiResult;
-use crate::extractors::{AdminAuth, ApiKeyAuth};
+use crate::extractors::{AdminAuth, ApiKeyAuth, LicenseManagerAuth};
+use crate::pagination::PageQuery;
 use crate::rate_limit;
 use crate::state::AppState;
 
@@ -45,11 +46,12 @@ fn extract_backend_metadata(all: &HashMap<String, String>) -> HashMap<String, St
 
 pub async fn generate(
     State(state): State<AppState>,
-    AdminAuth(identity): AdminAuth,
+    LicenseManagerAuth(actor): LicenseManagerAuth,
     Json(req): Json<GenerateLicenseRequest>,
 ) -> ApiResult<Json<LicenseKey>> {
+    let org_id = actor.org_id();
     let product = state.storage.get_product(req.product_id).await?;
-    if product.org_id != identity.org_id {
+    if product.org_id != org_id {
         return Err(ThaumielError::NotFound(format!("product '{}'", req.product_id)).into());
     }
 
@@ -60,7 +62,7 @@ pub async fn generate(
     let backend = state.keygen.get(&backend_id)?;
 
     let gen_req = GenerateRequest {
-        org_id: identity.org_id,
+        org_id,
         product_id: product.id,
         seats: req.seats,
         expires_at: req.expires_at,
@@ -70,7 +72,7 @@ pub async fn generate(
 
     let license = LicenseKey {
         id: LicenseId::new(),
-        org_id: identity.org_id,
+        org_id,
         product_id: product.id,
         backend_id,
         key: generated.key,
@@ -84,8 +86,8 @@ pub async fn generate(
     let license = state.storage.create_license(license).await?;
     audit::record(
         &state,
-        identity.org_id,
-        format!("user:{}", identity.user_id),
+        org_id,
+        actor.audit_label(),
         "license.generate",
         format!("license:{}", license.id),
     )
@@ -96,10 +98,11 @@ pub async fn generate(
 pub async fn list(
     State(state): State<AppState>,
     AdminAuth(identity): AdminAuth,
+    Query(page): Query<PageQuery>,
 ) -> ApiResult<Json<Vec<LicenseKey>>> {
     let licenses = state
         .storage
-        .list_licenses(identity.org_id, Pagination::default())
+        .list_licenses(identity.org_id, page.into())
         .await?;
     Ok(Json(licenses))
 }
@@ -118,11 +121,12 @@ pub async fn get(
 
 pub async fn revoke(
     State(state): State<AppState>,
-    AdminAuth(identity): AdminAuth,
+    LicenseManagerAuth(actor): LicenseManagerAuth,
     Path(id): Path<LicenseId>,
 ) -> ApiResult<Json<LicenseKey>> {
+    let org_id = actor.org_id();
     let existing = state.storage.get_license(id).await?;
-    if existing.org_id != identity.org_id {
+    if existing.org_id != org_id {
         return Err(ThaumielError::NotFound(format!("license '{id}'")).into());
     }
     let license = state
@@ -131,13 +135,48 @@ pub async fn revoke(
         .await?;
     audit::record(
         &state,
-        identity.org_id,
-        format!("user:{}", identity.user_id),
+        org_id,
+        actor.audit_label(),
         "license.revoke",
         format!("license:{id}"),
     )
     .await;
     Ok(Json(license))
+}
+
+/// Every machine that has activated a seat against this license. See issue #7.
+pub async fn activations(
+    State(state): State<AppState>,
+    AdminAuth(identity): AdminAuth,
+    Path(id): Path<LicenseId>,
+) -> ApiResult<Json<Vec<Activation>>> {
+    let license = state.storage.get_license(id).await?;
+    if license.org_id != identity.org_id {
+        return Err(ThaumielError::NotFound(format!("license '{id}'")).into());
+    }
+    Ok(Json(state.storage.list_activations(id).await?))
+}
+
+/// Frees one seat without revoking the whole license.
+pub async fn revoke_activation(
+    State(state): State<AppState>,
+    AdminAuth(identity): AdminAuth,
+    Path((id, activation_id)): Path<(LicenseId, ActivationId)>,
+) -> ApiResult<axum::http::StatusCode> {
+    let license = state.storage.get_license(id).await?;
+    if license.org_id != identity.org_id {
+        return Err(ThaumielError::NotFound(format!("license '{id}'")).into());
+    }
+    state.storage.delete_activation(id, activation_id).await?;
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "license.activation.revoke",
+        format!("license:{id} activation:{activation_id}"),
+    )
+    .await;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 fn invalid(reason: impl Into<String>) -> ValidateLicenseResponse {
@@ -164,6 +203,7 @@ pub async fn validate(
         Duration::from_secs(60),
     )
     .await?;
+    crate::usage::record_validation(state.cache.as_ref(), api_key.org_id).await;
 
     let Ok(license) = state.storage.get_license_by_key(&req.key).await else {
         return Ok(Json(invalid("license not found")));

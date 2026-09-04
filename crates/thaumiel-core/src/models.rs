@@ -122,6 +122,10 @@ pub struct User {
     pub email: String,
     /// Argon2id PHC string (`$argon2id$v=19$...`). Never `None` for internal-auth
     /// users; reserved as `Option` so SSO-only users (future work) can omit it.
+    /// `skip_serializing`: never let a route hand this back in a JSON
+    /// response, even by accident -- there's no legitimate reason a client
+    /// needs it, hashed or not.
+    #[serde(skip_serializing)]
     pub password_hash: Option<String>,
     pub role: Role,
     pub created_at: DateTime<Utc>,

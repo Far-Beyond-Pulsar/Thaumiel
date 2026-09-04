@@ -188,6 +188,18 @@ impl Storage for InMemoryStorage {
             .collect())
     }
 
+    async fn delete_activation(
+        &self,
+        license_id: LicenseId,
+        activation_id: thaumiel_core::ids::ActivationId,
+    ) -> Result<()> {
+        let mut t = self.tables.write().await;
+        if matches!(t.activations.get(&activation_id), Some(a) if a.license_id == license_id) {
+            t.activations.remove(&activation_id);
+        }
+        Ok(())
+    }
+
     async fn create_api_key(&self, key: ApiKey) -> Result<ApiKey> {
         let mut t = self.tables.write().await;
         t.api_keys.insert(key.id, key.clone());
@@ -262,6 +274,17 @@ impl Storage for InMemoryStorage {
             .get(&id)
             .cloned()
             .ok_or_else(|| ThaumielError::NotFound(format!("user '{id}'")))
+    }
+
+    async fn list_users(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<User>> {
+        let t = self.tables.read().await;
+        let items: Vec<_> = t
+            .users
+            .values()
+            .filter(|u| u.org_id == org_id)
+            .cloned()
+            .collect();
+        Ok(paginate(items, page, |u| std::cmp::Reverse(u.created_at)))
     }
 
     async fn append_audit_log(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {

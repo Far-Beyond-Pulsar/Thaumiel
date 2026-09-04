@@ -23,4 +23,8 @@ pub fn ensure_builtin_plugins_linked() {
         as fn(&thaumiel_core::registry::PluginContext) -> thaumiel_keygen::OpaqueTokenKeygen;
     let _ = thaumiel_auth::InternalAuthProvider::new
         as fn(&thaumiel_core::registry::PluginContext) -> thaumiel_auth::InternalAuthProvider;
+    let _ = thaumiel_auth::LdapAuthProvider::new
+        as fn(&thaumiel_core::registry::PluginContext) -> thaumiel_auth::LdapAuthProvider;
+    let _ = thaumiel_auth::OidcAuthProvider::new
+        as fn(&thaumiel_core::registry::PluginContext) -> thaumiel_auth::OidcAuthProvider;
 }

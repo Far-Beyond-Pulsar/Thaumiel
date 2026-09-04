@@ -12,10 +12,14 @@ Base path for everything below except health/metrics is `/v1`. Every response bo
 
 Two separate mechanisms, and a route accepts exactly one of them — see [`docs/ARCHITECTURE.md`](ARCHITECTURE.md#two-kinds-of-authentication-on-purpose) for why they're kept apart.
 
-- **Admin session** — `Authorization: Bearer <jwt>`, obtained from `/v1/auth/register` or `/v1/auth/login`. Required by every organization/product/license-management/API-key/audit-log route.
-- **API key** — `Authorization: Bearer <api key>` or `X-Api-Key: <api key>`, obtained from `POST /v1/api-keys`. Required by `POST /v1/licenses/validate` only — the one route meant to be called from a shipped application rather than a dashboard or admin script.
+- **Admin session** — `Authorization: Bearer <jwt>`, obtained from `/v1/auth/register` or `/v1/auth/login`. Required by every organization/product/API-key/audit-log/activation route.
+- **API key** — `Authorization: Bearer <api key>` or `X-Api-Key: <api key>`, obtained from `POST /v1/api-keys`. Required by `POST /v1/licenses/validate` (any active scope) and accepted as an alternative to an admin session by `POST /v1/licenses/generate` and `POST /v1/licenses/:id/revoke` (scope `admin` or `license_manager` only — a `validate_only` key gets `403 Forbidden` from those two).
 
-A request without the right kind of credential gets `401 Unauthenticated`, not a redirect or a partial response.
+A request without the right kind of credential gets `401 Unauthenticated`; the right kind of credential but insufficient scope gets `403 Forbidden`. Neither is a redirect or a partial response.
+
+## Pagination
+
+Every list route (`GET /v1/products`, `/v1/licenses`, `/v1/api-keys`, `/v1/audit-log`) accepts `?limit=&offset=`. `limit` defaults to 50 and is clamped to 200 regardless of what's requested; `offset` defaults to 0. There's no total-count header today — page until a response comes back shorter than `limit`.
 
 ## Health, readiness, metrics
 
@@ -49,11 +53,51 @@ Creates a new organization and its first user (role `owner`) in one step, and lo
 
 `401` on any wrong field, deliberately worded identically whether the email doesn't exist or the password is wrong — an internal-auth login endpoint that says which one it was is handing out a free list of valid email addresses to anyone willing to try one at a time.
 
+`/v1/auth/login` always uses whichever provider `auth.provider` names (`internal` or `ldap` -- both consume `Credentials::Password`, so they share this one route and this one request shape).
+
+### `POST /v1/auth/login/oidc`
+
+A separate route, not an alternate branch of `/v1/auth/login` -- always routes to the `oidc` provider specifically, regardless of `auth.provider`, so a deployment can offer password and OIDC login side by side rather than one or the other. Expects an `id_token` the caller already obtained by talking to the identity provider directly (there's no server-initiated redirect flow here).
+
+```json
+// request
+{ "org_id": "...", "id_token": "eyJ..." }
+// response (200): same shape as /login
+```
+
+`401` on a token that fails signature/issuer/audience/expiry verification. `THAUMIEL_OIDC_ISSUER_URL`/`THAUMIEL_OIDC_CLIENT_ID` unset -> every call fails (logged as a warning at startup, same pattern as the LDAP provider) -- see docs/CONFIGURATION.md.
+
+### SAML (cargo feature `saml`, off by default -- see docs/CONFIGURATION.md)
+
+Three routes, none accepting the shapes above -- SAML's redirect-based flow doesn't fit a single JSON POST:
+
+- **`GET /v1/auth/login/saml/metadata`** -- this server's own SP metadata XML (`application/samlmetadata+xml`). Point your IdP's SP configuration at this URL (or paste its contents in, depending on the IdP).
+- **`GET /v1/auth/login/saml/start?org_id=...`** -- redirects the browser to the IdP to begin login, carrying `org_id` through the round trip as SAML's `RelayState`.
+- **`POST /v1/auth/login/saml/acs`** -- the IdP POSTs here (`application/x-www-form-urlencoded`, fields `SAMLResponse` and `RelayState`) after a successful login. Verifies the response's XML signature for real (via `samael`'s `xmlsec1` binding, not a stub) and, on success, returns `{ "token": "...", "identity": {...} }` as JSON directly -- **there is no browser-facing callback page** built for this; a real deployment needs a thin page in front of this route to hand the token to a UI. `401` on any verification failure (bad signature, expired assertion, wrong recipient, etc.).
+
+Email is taken from an explicit email-shaped assertion attribute if the IdP sends one, falling back to `NameID` (common when the IdP is configured with `EmailAddressNameIDFormat`). Same JIT-provisioning as LDAP/OIDC. **Known simplification**: SP-initiated requests aren't tracked by ID, so `InResponseTo` replay protection isn't enforced -- `NotOnOrAfter`/`Recipient` checks (which `samael` always enforces) still bound a captured assertion's usable window and destination.
+
 ## Organizations
 
 ### `GET /v1/organizations/me`
 
 Returns the caller's own organization — resolved from the JWT, not a path parameter. There's no route to look up an arbitrary organization by id; a caller only ever sees their own.
+
+## Users
+
+### `POST /v1/users`
+
+Adds a user to the caller's organization (admin session, `owner`/`admin` role only -- a `member` gets `403`). There's no invite-email flow: the admin sets a temporary password directly and shares it out of band.
+
+```json
+// request
+{ "email": "teammate@acme.test", "password": "at least 8 characters", "role": "member" }
+// response (200): the created User -- password_hash is never serialized, on this or any route
+```
+
+### `GET /v1/users`
+
+Paginated list of users in the caller's organization (admin session, any role).
 
 ## Products
 
@@ -78,6 +122,8 @@ Lists products belonging to the caller's organization.
 
 ### `POST /v1/licenses/generate`
 
+Accepts an admin session **or** an `admin`/`license_manager`-scoped API key — the latter is meant for automation (a CI pipeline minting a key on release, an internal ops tool) that shouldn't need a human to log in. A `validate_only` key gets `403`.
+
 ```json
 // request
 {
@@ -98,7 +144,15 @@ List or fetch, scoped to the caller's organization the same way products are.
 
 ### `POST /v1/licenses/:id/revoke`
 
-Sets status to `revoked` and stamps `revoked_at`. Idempotent in effect, though calling it twice writes two audit log entries.
+Sets status to `revoked` and stamps `revoked_at`. Idempotent in effect, though calling it twice writes two audit log entries. Same auth as `/generate`: admin session or `admin`/`license_manager` API key.
+
+### `GET /v1/licenses/:id/activations`
+
+Every machine that has activated a seat against this license (admin session only). Returns `Activation[]`: `{ id, license_id, machine_fingerprint, activated_at }`.
+
+### `DELETE /v1/licenses/:id/activations/:activation_id`
+
+Frees one seat without revoking the whole license — the seat becomes available again for a new (or the same) machine fingerprint on the next `/validate` call. `204 No Content` on success; `404` if the activation doesn't belong to that license or license doesn't belong to the caller's org.
 
 ### `POST /v1/licenses/validate`
 
@@ -131,7 +185,7 @@ Rate-limited per calling API key (120 requests/minute by default, fixed window, 
 }
 ```
 
-`scope` is one of `admin`, `license_manager`, `validate_only`; only `validate_only`'s behavior is actually enforced by a route today (`/v1/licenses/validate` accepts any active key regardless of scope, since it's currently the only API-key-gated route) — the field exists so scope-based restriction has somewhere to attach as more machine-facing routes are added, without a breaking schema change later.
+`scope` is one of `admin`, `license_manager`, `validate_only`. `/v1/licenses/validate` accepts any active key regardless of scope (there's nothing more privileged than "validate" for it to gate); `/v1/licenses/generate` and `/v1/licenses/:id/revoke` require `admin` or `license_manager` and reject `validate_only` with `403`. No route is gated on `admin`-vs-`license_manager` yet -- both are treated identically today -- that distinction is reserved for routes doing something beyond license management (e.g. a future machine-facing product-management endpoint).
 
 ### `GET /v1/api-keys`
 
@@ -141,8 +195,30 @@ Lists keys for the caller's organization. Never includes `key_hash` in a way tha
 
 Immediate. A revoked key fails `ApiKeyAuth` on its very next use with `401`, not a grace period.
 
+## Usage
+
+### `GET /v1/usage`
+
+Resource counts and validate-call volume for the caller's organization -- the metering half of issue #6 (see `docs/ARCHITECTURE.md` for why billing/payment integration is explicitly not part of this).
+
+```json
+{
+  "products": 3,
+  "licenses_total": 42,
+  "licenses_active": 39,
+  "api_keys_active": 2,
+  "counts_capped_at": 200,
+  "validate_calls_last_14_days": [
+    { "date": "2026-08-22", "count": 0 },
+    { "date": "2026-08-23", "count": 14 }
+  ]
+}
+```
+
+`products`/`licenses_total`/`licenses_active`/`api_keys_active` are exact only up to `counts_capped_at` (200, the max page `?limit=`) -- beyond that this undercounts; use the paginated list endpoints for an exact total on a larger organization. `validate_calls_last_14_days` is always exactly 14 entries, oldest first, zero-filled for days with no calls -- backed by `Cache` counters (the same mechanism rate limiting uses), not a database table, so history resets if the cache does and isn't retained beyond ~40 days.
+
 ## Audit log
 
 ### `GET /v1/audit-log`
 
-Most recent 100 entries for the caller's organization, newest first. Every mutating admin action writes one entry — `organization.register`, `product.create`, `license.generate`, `license.revoke`, `api_key.create`, `api_key.revoke` — with the acting user, the action, and the target id. Writing to the audit log is best-effort: a failure there is logged and swallowed rather than failing the request that triggered it, since an audit trail hiccup shouldn't be the reason a legitimate admin action fails.
+Paginated (see above), newest first, for the caller's organization. Every mutating admin action writes one entry — `organization.register`, `product.create`, `license.generate`, `license.revoke`, `license.activation.revoke`, `api_key.create`, `api_key.revoke` — with the acting user or API key (`user:<id>` / `api_key:<id>`), the action, and the target id. Writing to the audit log is best-effort: a failure there is logged and swallowed rather than failing the request that triggered it, since an audit trail hiccup shouldn't be the reason a legitimate admin action fails.

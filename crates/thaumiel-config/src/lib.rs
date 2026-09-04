@@ -12,6 +12,15 @@ use thaumiel_core::{Result, ThaumielError};
 pub struct ServerConfig {
     pub bind: String,
     pub port: u16,
+    /// Origins allowed to make cross-origin requests (e.g.
+    /// `"https://dashboard.example.com"`). Empty (the default) means
+    /// permissive CORS -- every origin allowed, no credentials -- which is
+    /// what makes `cargo run -p thaumiel-server` usable out of the box
+    /// against `thaumiel-ui` or `curl` without any config. Set this to a
+    /// real allow-list before exposing the API to a browser-based client
+    /// you don't control; see `docs/DEPLOYMENT.md`.
+    #[serde(default)]
+    pub cors_allowed_origins: Vec<String>,
 }
 
 impl Default for ServerConfig {
@@ -19,6 +28,7 @@ impl Default for ServerConfig {
         Self {
             bind: "0.0.0.0".into(),
             port: 8080,
+            cors_allowed_origins: Vec::new(),
         }
     }
 }
@@ -29,6 +39,10 @@ impl Default for ServerConfig {
 pub enum DatabaseBackend {
     Postgres,
     Mysql,
+    /// SQL Server. `url` is an ADO-style connection string (e.g.
+    /// `Server=tcp:host,1433;Database=thaumiel;User Id=sa;Password=...;TrustServerCertificate=true;`),
+    /// not a `mssql://` URL -- see `thaumiel_storage::MssqlStorage`.
+    Mssql,
     Sqlite,
     /// Non-persistent, process-local storage. Only sensible for tests/demos.
     Memory,

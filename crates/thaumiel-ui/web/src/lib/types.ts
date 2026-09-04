@@ -10,6 +10,14 @@ export interface Identity {
   role: Role;
 }
 
+export interface User {
+  id: string;
+  org_id: string;
+  email: string;
+  role: Role;
+  created_at: string;
+}
+
 export interface SessionResponse {
   token: string;
   identity: Identity;
@@ -77,6 +85,20 @@ export interface KeygenBackendInfo {
   id: string;
   description: string;
   offline_verifiable: boolean;
+}
+
+export interface UsageDayCount {
+  date: string;
+  count: number;
+}
+
+export interface UsageSummary {
+  products: number;
+  licenses_total: number;
+  licenses_active: number;
+  api_keys_active: number;
+  counts_capped_at: number;
+  validate_calls_last_14_days: UsageDayCount[];
 }
 
 export interface ValidateLicenseResponse {

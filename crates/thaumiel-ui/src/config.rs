@@ -38,7 +38,10 @@ pub struct ServerConfig {
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self { bind: "0.0.0.0".into(), port: 4200 }
+        Self {
+            bind: "0.0.0.0".into(),
+            port: 4200,
+        }
     }
 }
 
@@ -53,7 +56,9 @@ pub struct ApiConfig {
 
 impl Default for ApiConfig {
     fn default() -> Self {
-        Self { base_url: "http://localhost:8080".into() }
+        Self {
+            base_url: "http://localhost:8080".into(),
+        }
     }
 }
 
