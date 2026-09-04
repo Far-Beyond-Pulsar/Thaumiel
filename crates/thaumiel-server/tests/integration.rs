@@ -17,6 +17,7 @@ use thaumiel_core::registry::{AuthProviderRegistry, KeygenRegistry, PluginContex
 use thaumiel_server::{routes, AppState};
 
 fn test_state() -> AppState {
+    thaumiel_server::plugins::ensure_builtin_plugins_linked();
     let storage = Arc::new(thaumiel_storage::InMemoryStorage::new());
     let cache = Arc::new(thaumiel_cache::InMemoryCache::new());
     let ctx = PluginContext { storage: storage.clone(), cache: cache.clone() };

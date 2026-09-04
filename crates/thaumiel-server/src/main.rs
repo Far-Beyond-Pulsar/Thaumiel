@@ -24,11 +24,10 @@ async fn main() -> anyhow::Result<()> {
 
     let cache: Arc<dyn Cache> = build_cache(&config).await?;
 
-    // `thaumiel-auth` and `thaumiel-keygen` are ordinary Cargo dependencies of
-    // this crate (see Cargo.toml); simply being linked in is enough for their
-    // `register_*!` calls to be discovered below -- no explicit reference to
-    // either crate's types is required. Adding a third-party plugin crate
-    // means adding it as a dependency here the same way; see docs/PLUGINS.md.
+    // See plugins.rs: forces the linker to actually include the built-in
+    // plugin crates' registration code. Adding a third-party plugin crate
+    // means adding it as a dependency and to that function; see docs/PLUGINS.md.
+    thaumiel_server::plugins::ensure_builtin_plugins_linked();
     let ctx = PluginContext { storage: storage.clone(), cache: cache.clone() };
     let keygen = Arc::new(KeygenRegistry::from_inventory(&ctx));
     let auth_providers = Arc::new(AuthProviderRegistry::from_inventory(&ctx));

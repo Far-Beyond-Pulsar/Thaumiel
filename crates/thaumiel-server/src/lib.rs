@@ -9,6 +9,7 @@ pub mod audit;
 pub mod dto;
 pub mod error;
 pub mod extractors;
+pub mod plugins;
 pub mod rate_limit;
 pub mod routes;
 pub mod state;
