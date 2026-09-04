@@ -1,0 +1,22 @@
+[package]
+name = "thaumiel-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Cache backends (Redis, in-memory) for Thaumiel."
+
+[dependencies]
+thaumiel-core.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"], optional = true }
+tokio.workspace = true
+
+[features]
+default = ["redis-backend", "memory-backend"]
+redis-backend = ["dep:redis"]
+memory-backend = []

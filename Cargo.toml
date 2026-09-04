@@ -1,0 +1,49 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/thaumiel-core",
+    "crates/thaumiel-config",
+    "crates/thaumiel-storage",
+    "crates/thaumiel-cache",
+    "crates/thaumiel-auth",
+    "crates/thaumiel-keygen",
+    "crates/thaumiel-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.79"
+license = "MIT"
+authors = ["Tristan Poland"]
+repository = "https://github.com/TristanPoland/Thaumiel"
+
+[workspace.dependencies]
+thaumiel-core = { path = "crates/thaumiel-core" }
+thaumiel-config = { path = "crates/thaumiel-config" }
+thaumiel-storage = { path = "crates/thaumiel-storage" }
+thaumiel-cache = { path = "crates/thaumiel-cache" }
+thaumiel-auth = { path = "crates/thaumiel-auth" }
+thaumiel-keygen = { path = "crates/thaumiel-keygen" }
+
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+inventory = "0.3"
+base64 = "0.22"
+rand = "0.8"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3

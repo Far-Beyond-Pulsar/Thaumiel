@@ -1,0 +1,36 @@
+# Thaumiel default configuration -- safe for local development out of the box.
+# Layering: default.toml -> config/<THAUMIEL_ENV>.toml (THAUMIEL_ENV defaults to
+# "development") -> THAUMIEL_* environment variables (highest precedence,
+# nested keys via double underscore, e.g. THAUMIEL_DATABASE__URL).
+#
+# See config/example.production.toml for a production-oriented starting point,
+# and docs/ARCHITECTURE.md for what each section controls.
+
+[server]
+bind = "0.0.0.0"
+port = 8080
+
+[database]
+# One of: "postgres", "mysql", "sqlite", "memory".
+backend = "sqlite"
+url = "sqlite://thaumiel.db?mode=rwc"
+max_connections = 10
+
+[cache]
+# One of: "redis", "memory".
+backend = "memory"
+redis_url = "redis://127.0.0.1:6379"
+
+[auth]
+# CHANGE ME in any non-development environment -- THAUMIEL_AUTH__JWT_SECRET.
+jwt_secret = "development-only-insecure-secret-change-me"
+jwt_ttl_secs = 43200
+provider = "internal"
+
+[keygen]
+default_backend = "opaque"
+
+[telemetry]
+log_level = "info"
+json = false
+metrics_enabled = true

@@ -1,0 +1,14 @@
+[package]
+name = "thaumiel-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Layered (file + env) configuration loading for Thaumiel."
+
+[dependencies]
+thaumiel-core.workspace = true
+serde.workspace = true
+figment = { version = "0.10", features = ["toml", "env"] }

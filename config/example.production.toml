@@ -1,0 +1,36 @@
+# Copy to config/production.toml (or set THAUMIEL_ENV=production and provide
+# your own), fill in the blanks, and prefer secrets via THAUMIEL_* env vars
+# over committing them here. Run with THAUMIEL_ENV=production.
+
+[server]
+bind = "0.0.0.0"
+port = 8080
+
+[database]
+backend = "postgres" # or "mysql"
+url = "postgres://thaumiel:CHANGE_ME@postgres:5432/thaumiel"
+max_connections = 20
+
+[cache]
+backend = "redis"
+redis_url = "redis://redis:6379"
+
+[auth]
+# Always override via THAUMIEL_AUTH__JWT_SECRET in production instead of
+# committing a real secret to this file.
+jwt_secret = "CHANGE_ME"
+jwt_ttl_secs = 3600
+provider = "internal"
+
+[keygen]
+default_backend = "ed25519"
+
+[telemetry]
+log_level = "info"
+json = true
+metrics_enabled = true
+
+# Also set as environment variables on the server process (not read from this
+# file, since they're secret key material rather than configuration):
+#   THAUMIEL_KEYGEN_HMAC_SECRET=<32+ bytes of hex>
+#   THAUMIEL_KEYGEN_ED25519_SECRET=<32 bytes of hex>

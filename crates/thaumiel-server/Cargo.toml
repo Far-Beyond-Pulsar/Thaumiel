@@ -1,0 +1,42 @@
+[package]
+name = "thaumiel-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Thaumiel HTTP API server: wires storage, cache, auth, and keygen plugins into an axum app."
+
+[[bin]]
+name = "thaumiel-server"
+path = "src/main.rs"
+
+[dependencies]
+thaumiel-core.workspace = true
+thaumiel-config.workspace = true
+thaumiel-storage.workspace = true
+thaumiel-cache.workspace = true
+thaumiel-auth.workspace = true
+thaumiel-keygen.workspace = true
+
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "request-id", "timeout", "util"] }
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"

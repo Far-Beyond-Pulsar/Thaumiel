@@ -1,0 +1,22 @@
+[package]
+name = "thaumiel-auth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Internal authentication for Thaumiel: Argon2id passwords, JWT sessions, hashed API keys."
+
+[dependencies]
+thaumiel-core.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+rand.workspace = true
+
+argon2 = "0.5"
+jsonwebtoken = "9"
+sha2 = "0.10"
+hex = "0.4"
