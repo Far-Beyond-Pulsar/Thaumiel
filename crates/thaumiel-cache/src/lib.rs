@@ -7,7 +7,7 @@ pub mod memory;
 #[cfg(feature = "redis-backend")]
 pub mod redis;
 
-#[cfg(feature = "memory-backend")]
-pub use memory::InMemoryCache;
 #[cfg(feature = "redis-backend")]
 pub use crate::redis::RedisCache;
+#[cfg(feature = "memory-backend")]
+pub use memory::InMemoryCache;

@@ -10,7 +10,11 @@ pub async fn list(State(state): State<AppState>) -> Json<Vec<KeygenBackendInfo>>
     let mut backends: Vec<_> = state
         .keygen
         .iter()
-        .map(|b| KeygenBackendInfo { id: b.id(), description: b.description(), offline_verifiable: b.offline_verifiable() })
+        .map(|b| KeygenBackendInfo {
+            id: b.id(),
+            description: b.description(),
+            offline_verifiable: b.offline_verifiable(),
+        })
         .collect();
     backends.sort_by_key(|b| b.id);
     Json(backends)

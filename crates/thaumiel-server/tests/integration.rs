@@ -20,7 +20,10 @@ fn test_state() -> AppState {
     thaumiel_server::plugins::ensure_builtin_plugins_linked();
     let storage = Arc::new(thaumiel_storage::InMemoryStorage::new());
     let cache = Arc::new(thaumiel_cache::InMemoryCache::new());
-    let ctx = PluginContext { storage: storage.clone(), cache: cache.clone() };
+    let ctx = PluginContext {
+        storage: storage.clone(),
+        cache: cache.clone(),
+    };
     AppState {
         config: Arc::new(AppConfig::default()),
         storage,
@@ -36,7 +39,10 @@ async fn body_json(response: axum::response::Response) -> Value {
 }
 
 fn json_request(method: &str, uri: &str, token: Option<&str>, body: Value) -> Request<Body> {
-    let mut builder = Request::builder().method(method).uri(uri).header("content-type", "application/json");
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json");
     if let Some(token) = token {
         builder = builder.header("authorization", format!("Bearer {token}"));
     }
@@ -65,12 +71,21 @@ async fn full_lifecycle() {
     // 2. Create a product using the default ("opaque") keygen backend.
     let res = app
         .clone()
-        .oneshot(json_request("POST", "/v1/products", Some(&token), json!({ "name": "Widget Pro" })))
+        .oneshot(json_request(
+            "POST",
+            "/v1/products",
+            Some(&token),
+            json!({ "name": "Widget Pro" }),
+        ))
         .await
         .unwrap();
     let status = res.status();
     let product = body_json(res).await;
-    assert_eq!(status, StatusCode::OK, "product creation should succeed: {product:?}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "product creation should succeed: {product:?}"
+    );
     let product_id = product["id"].as_str().unwrap().to_string();
     assert_eq!(product["default_keygen_backend"], "opaque");
 
@@ -85,7 +100,11 @@ async fn full_lifecycle() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "license generation should succeed");
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "license generation should succeed"
+    );
     let license = body_json(res).await;
     let license_key = license["key"].as_str().unwrap().to_string();
     assert!(license_key.starts_with("thm-lic-"));
@@ -101,7 +120,11 @@ async fn full_lifecycle() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "api key creation should succeed");
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "api key creation should succeed"
+    );
     let api_key = body_json(res).await;
     let api_key_plaintext = api_key["plaintext"].as_str().unwrap().to_string();
 
@@ -116,9 +139,16 @@ async fn full_lifecycle() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "validation call should succeed");
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "validation call should succeed"
+    );
     let validation = body_json(res).await;
-    assert_eq!(validation["valid"], true, "license should validate: {validation:?}");
+    assert_eq!(
+        validation["valid"], true,
+        "license should validate: {validation:?}"
+    );
     assert_eq!(validation["seats_used"], 1);
     assert_eq!(validation["seats_total"], 2);
 

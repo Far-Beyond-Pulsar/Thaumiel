@@ -31,12 +31,25 @@ pub async fn create(
         created_at: Utc::now(),
     };
     let product = state.storage.create_product(product).await?;
-    audit::record(&state, identity.org_id, format!("user:{}", identity.user_id), "product.create", format!("product:{}", product.id)).await;
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "product.create",
+        format!("product:{}", product.id),
+    )
+    .await;
     Ok(Json(product))
 }
 
-pub async fn list(State(state): State<AppState>, AdminAuth(identity): AdminAuth) -> ApiResult<Json<Vec<Product>>> {
-    let products = state.storage.list_products(identity.org_id, Pagination::default()).await?;
+pub async fn list(
+    State(state): State<AppState>,
+    AdminAuth(identity): AdminAuth,
+) -> ApiResult<Json<Vec<Product>>> {
+    let products = state
+        .storage
+        .list_products(identity.org_id, Pagination::default())
+        .await?;
     Ok(Json(products))
 }
 
@@ -54,6 +67,8 @@ pub async fn get(
 
 impl CreateProductRequest {
     fn backend_or_default(&self, state: &AppState) -> String {
-        self.default_keygen_backend.clone().unwrap_or_else(|| state.config.keygen.default_backend.clone())
+        self.default_keygen_backend
+            .clone()
+            .unwrap_or_else(|| state.config.keygen.default_backend.clone())
     }
 }

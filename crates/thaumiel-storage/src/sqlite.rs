@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{SqlitePool, Row};
+use sqlx::{Row, SqlitePool};
 
 use thaumiel_core::ids::{ApiKeyId, LicenseId, OrganizationId, ProductId, UserId};
-use thaumiel_core::models::{Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User};
+use thaumiel_core::models::{
+    Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User,
+};
 use thaumiel_core::traits::{Pagination, Storage};
 use thaumiel_core::{Result, ThaumielError};
 
@@ -37,7 +39,10 @@ impl Storage for SqliteStorage {
     }
 
     async fn migrate(&self) -> Result<()> {
-        MIGRATOR.run(&self.pool).await.map_err(|e| ThaumielError::Storage(e.to_string()))
+        MIGRATOR
+            .run(&self.pool)
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))
     }
 
     async fn create_organization(&self, org: Organization) -> Result<Organization> {
@@ -62,12 +67,13 @@ impl Storage for SqliteStorage {
     }
 
     async fn list_organizations(&self, page: Pagination) -> Result<Vec<Organization>> {
-        let rows = sqlx::query("SELECT * FROM organizations ORDER BY created_at DESC LIMIT ? OFFSET ?")
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows =
+            sqlx::query("SELECT * FROM organizations ORDER BY created_at DESC LIMIT ? OFFSET ?")
+                .bind(page.limit as i64)
+                .bind(page.offset as i64)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(sqlx_err)?;
         rows.iter().map(organization_from_row).collect()
     }
 
@@ -96,14 +102,20 @@ impl Storage for SqliteStorage {
         product_from_row(&row)
     }
 
-    async fn list_products(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<Product>> {
-        let rows = sqlx::query("SELECT * FROM products WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+    async fn list_products(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<Product>> {
+        let rows = sqlx::query(
+            "SELECT * FROM products WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(product_from_row).collect()
     }
 
@@ -149,26 +161,34 @@ impl Storage for SqliteStorage {
         license_from_row(&row)
     }
 
-    async fn list_licenses(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<LicenseKey>> {
-        let rows = sqlx::query("SELECT * FROM license_keys WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+    async fn list_licenses(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<LicenseKey>> {
+        let rows = sqlx::query(
+            "SELECT * FROM license_keys WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(license_from_row).collect()
     }
 
     async fn set_license_status(&self, id: LicenseId, status: LicenseStatus) -> Result<LicenseKey> {
         let revoked_at = matches!(status, LicenseStatus::Revoked).then(now_str);
-        sqlx::query("UPDATE license_keys SET status = ?, revoked_at = COALESCE(?, revoked_at) WHERE id = ?")
-            .bind(license_status_str(status))
-            .bind(revoked_at)
-            .bind(uuid_str(id))
-            .execute(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        sqlx::query(
+            "UPDATE license_keys SET status = ?, revoked_at = COALESCE(?, revoked_at) WHERE id = ?",
+        )
+        .bind(license_status_str(status))
+        .bind(revoked_at)
+        .bind(uuid_str(id))
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         self.get_license(id).await
     }
 
@@ -195,11 +215,13 @@ impl Storage for SqliteStorage {
     }
 
     async fn list_activations(&self, license_id: LicenseId) -> Result<Vec<Activation>> {
-        let rows = sqlx::query("SELECT * FROM activations WHERE license_id = ? ORDER BY activated_at DESC")
-            .bind(uuid_str(license_id))
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows = sqlx::query(
+            "SELECT * FROM activations WHERE license_id = ? ORDER BY activated_at DESC",
+        )
+        .bind(uuid_str(license_id))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(activation_from_row).collect()
     }
 
@@ -234,13 +256,15 @@ impl Storage for SqliteStorage {
     }
 
     async fn list_api_keys(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<ApiKey>> {
-        let rows = sqlx::query("SELECT * FROM api_keys WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows = sqlx::query(
+            "SELECT * FROM api_keys WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(api_key_from_row).collect()
     }
 
@@ -331,14 +355,20 @@ impl Storage for SqliteStorage {
         Ok(entry)
     }
 
-    async fn list_audit_log(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<AuditLogEntry>> {
-        let rows = sqlx::query("SELECT * FROM audit_log WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+    async fn list_audit_log(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<AuditLogEntry>> {
+        let rows = sqlx::query(
+            "SELECT * FROM audit_log WHERE org_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(audit_log_from_row).collect()
     }
 }

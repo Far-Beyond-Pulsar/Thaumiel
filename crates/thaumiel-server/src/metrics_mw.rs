@@ -12,7 +12,11 @@ use std::time::Instant;
 
 pub async fn track(req: Request, next: Next) -> Response {
     let method = req.method().to_string();
-    let path = req.extensions().get::<MatchedPath>().map(|p| p.as_str().to_string()).unwrap_or_else(|| req.uri().path().to_string());
+    let path = req
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|p| p.as_str().to_string())
+        .unwrap_or_else(|| req.uri().path().to_string());
 
     let start = Instant::now();
     let response = next.run(req).await;
@@ -21,7 +25,8 @@ pub async fn track(req: Request, next: Next) -> Response {
 
     metrics::counter!("http_requests_total", "method" => method.clone(), "path" => path.clone(), "status" => status)
         .increment(1);
-    metrics::histogram!("http_request_duration_seconds", "method" => method, "path" => path).record(elapsed);
+    metrics::histogram!("http_request_duration_seconds", "method" => method, "path" => path)
+        .record(elapsed);
 
     response
 }

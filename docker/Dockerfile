@@ -1,7 +1,7 @@
 # Multi-stage build for thaumiel-server. Build context should be the repo
 # root, e.g.: docker build -f docker/Dockerfile -t thaumiel-server .
 
-FROM rust:1.79-bookworm AS builder
+FROM rust:latest AS builder
 WORKDIR /build
 
 # Cache dependency compilation separately from application code.

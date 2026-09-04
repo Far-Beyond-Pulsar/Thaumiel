@@ -14,7 +14,10 @@ pub struct Pagination {
 
 impl Default for Pagination {
     fn default() -> Self {
-        Self { limit: 50, offset: 0 }
+        Self {
+            limit: 50,
+            offset: 0,
+        }
     }
 }
 
@@ -40,7 +43,8 @@ pub trait Storage: Send + Sync {
     // -- products ----------------------------------------------------------
     async fn create_product(&self, product: Product) -> Result<Product>;
     async fn get_product(&self, id: ProductId) -> Result<Product>;
-    async fn list_products(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<Product>>;
+    async fn list_products(&self, org_id: OrganizationId, page: Pagination)
+        -> Result<Vec<Product>>;
 
     // -- licenses ------------------------------------------------------------
     async fn create_license(&self, license: LicenseKey) -> Result<LicenseKey>;
@@ -49,7 +53,11 @@ pub trait Storage: Send + Sync {
     /// backends (e.g. opaque tokens); offline-verifiable backends may still use
     /// this for revocation checks.
     async fn get_license_by_key(&self, key: &str) -> Result<LicenseKey>;
-    async fn list_licenses(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<LicenseKey>>;
+    async fn list_licenses(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<LicenseKey>>;
     async fn set_license_status(&self, id: LicenseId, status: LicenseStatus) -> Result<LicenseKey>;
 
     // -- activations (seat tracking) -----------------------------------------
@@ -73,5 +81,9 @@ pub trait Storage: Send + Sync {
 
     // -- audit log -----------------------------------------------------------------
     async fn append_audit_log(&self, entry: AuditLogEntry) -> Result<AuditLogEntry>;
-    async fn list_audit_log(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<AuditLogEntry>>;
+    async fn list_audit_log(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<AuditLogEntry>>;
 }

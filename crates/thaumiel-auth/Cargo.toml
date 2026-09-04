@@ -17,6 +17,10 @@ tracing.workspace = true
 rand.workspace = true
 
 argon2 = "0.5"
-jsonwebtoken = "9"
 sha2 = "0.10"
 hex = "0.4"
+pasetors = "0.6.8"
+blake3 = "1.8.7"
+subtle = "2.6.1"
+rusty_paseto = "0.9.0"
+serde_json.workspace = true

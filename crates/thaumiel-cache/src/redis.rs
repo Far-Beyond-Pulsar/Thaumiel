@@ -34,7 +34,9 @@ impl Cache for RedisCache {
 
     async fn get(&self, key: &str) -> Result<Option<String>> {
         let mut conn = self.conn.clone();
-        conn.get(key).await.map_err(|e| ThaumielError::Cache(e.to_string()))
+        conn.get(key)
+            .await
+            .map_err(|e| ThaumielError::Cache(e.to_string()))
     }
 
     async fn set(&self, key: &str, value: &str, ttl: Option<Duration>) -> Result<()> {
@@ -53,23 +55,41 @@ impl Cache for RedisCache {
 
     async fn del(&self, key: &str) -> Result<()> {
         let mut conn = self.conn.clone();
-        conn.del::<_, ()>(key).await.map_err(|e| ThaumielError::Cache(e.to_string()))
+        conn.del::<_, ()>(key)
+            .await
+            .map_err(|e| ThaumielError::Cache(e.to_string()))
     }
 
     async fn incr(&self, key: &str, ttl: Option<Duration>) -> Result<i64> {
         let mut conn = self.conn.clone();
-        let count: i64 = conn
-            .incr(key, 1)
-            .await
-            .map_err(|e| ThaumielError::Cache(e.to_string()))?;
-        if count == 1 {
-            if let Some(ttl) = ttl {
-                let _: () = conn
-                    .expire(key, ttl.as_secs().max(1) as i64)
-                    .await
-                    .map_err(|e| ThaumielError::Cache(e.to_string()))?;
-            }
+
+        // Execute INCR and EXPIRE atomically using a Lua script to prevent race conditions.
+        // If we did INCR then EXPIRE in two roundtrips, a crash in between would leave the key without a TTL.
+        if let Some(ttl) = ttl {
+            let script = redis::Script::new(
+                r#"
+                local current = redis.call('INCR', KEYS[1])
+                if current == 1 then
+                    redis.call('EXPIRE', KEYS[1], ARGV[1])
+                end
+                return current
+            "#,
+            );
+
+            let count: i64 = script
+                .key(key)
+                .arg(ttl.as_secs().max(1) as i64)
+                .invoke_async(&mut conn)
+                .await
+                .map_err(|e| ThaumielError::Cache(e.to_string()))?;
+
+            Ok(count)
+        } else {
+            let count: i64 = conn
+                .incr(key, 1)
+                .await
+                .map_err(|e| ThaumielError::Cache(e.to_string()))?;
+            Ok(count)
         }
-        Ok(count)
     }
 }

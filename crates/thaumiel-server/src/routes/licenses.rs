@@ -23,7 +23,10 @@ use crate::state::AppState;
 /// through storage without a dedicated column.
 const BACKEND_METADATA_PREFIX: &str = "__backend_";
 
-fn merge_backend_metadata(user: HashMap<String, String>, backend: HashMap<String, String>) -> HashMap<String, String> {
+fn merge_backend_metadata(
+    user: HashMap<String, String>,
+    backend: HashMap<String, String>,
+) -> HashMap<String, String> {
     let mut merged = user;
     for (k, v) in backend {
         merged.insert(format!("{BACKEND_METADATA_PREFIX}{k}"), v);
@@ -33,7 +36,10 @@ fn merge_backend_metadata(user: HashMap<String, String>, backend: HashMap<String
 
 fn extract_backend_metadata(all: &HashMap<String, String>) -> HashMap<String, String> {
     all.iter()
-        .filter_map(|(k, v)| k.strip_prefix(BACKEND_METADATA_PREFIX).map(|k| (k.to_string(), v.clone())))
+        .filter_map(|(k, v)| {
+            k.strip_prefix(BACKEND_METADATA_PREFIX)
+                .map(|k| (k.to_string(), v.clone()))
+        })
         .collect()
 }
 
@@ -47,7 +53,10 @@ pub async fn generate(
         return Err(ThaumielError::NotFound(format!("product '{}'", req.product_id)).into());
     }
 
-    let backend_id = req.backend_id.clone().unwrap_or_else(|| product.default_keygen_backend.clone());
+    let backend_id = req
+        .backend_id
+        .clone()
+        .unwrap_or_else(|| product.default_keygen_backend.clone());
     let backend = state.keygen.get(&backend_id)?;
 
     let gen_req = GenerateRequest {
@@ -73,12 +82,25 @@ pub async fn generate(
         revoked_at: None,
     };
     let license = state.storage.create_license(license).await?;
-    audit::record(&state, identity.org_id, format!("user:{}", identity.user_id), "license.generate", format!("license:{}", license.id)).await;
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "license.generate",
+        format!("license:{}", license.id),
+    )
+    .await;
     Ok(Json(license))
 }
 
-pub async fn list(State(state): State<AppState>, AdminAuth(identity): AdminAuth) -> ApiResult<Json<Vec<LicenseKey>>> {
-    let licenses = state.storage.list_licenses(identity.org_id, Pagination::default()).await?;
+pub async fn list(
+    State(state): State<AppState>,
+    AdminAuth(identity): AdminAuth,
+) -> ApiResult<Json<Vec<LicenseKey>>> {
+    let licenses = state
+        .storage
+        .list_licenses(identity.org_id, Pagination::default())
+        .await?;
     Ok(Json(licenses))
 }
 
@@ -103,13 +125,28 @@ pub async fn revoke(
     if existing.org_id != identity.org_id {
         return Err(ThaumielError::NotFound(format!("license '{id}'")).into());
     }
-    let license = state.storage.set_license_status(id, LicenseStatus::Revoked).await?;
-    audit::record(&state, identity.org_id, format!("user:{}", identity.user_id), "license.revoke", format!("license:{id}")).await;
+    let license = state
+        .storage
+        .set_license_status(id, LicenseStatus::Revoked)
+        .await?;
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "license.revoke",
+        format!("license:{id}"),
+    )
+    .await;
     Ok(Json(license))
 }
 
 fn invalid(reason: impl Into<String>) -> ValidateLicenseResponse {
-    ValidateLicenseResponse { valid: false, reason: Some(reason.into()), seats_total: None, seats_used: None }
+    ValidateLicenseResponse {
+        valid: false,
+        reason: Some(reason.into()),
+        seats_total: None,
+        seats_used: None,
+    }
 }
 
 /// The one route meant to be called from a shipped application (via
@@ -120,7 +157,13 @@ pub async fn validate(
     ApiKeyAuth(api_key): ApiKeyAuth,
     Json(req): Json<ValidateLicenseRequest>,
 ) -> ApiResult<Json<ValidateLicenseResponse>> {
-    rate_limit::check(state.cache.as_ref(), &format!("validate:{}", api_key.key_prefix), 120, Duration::from_secs(60)).await?;
+    rate_limit::check(
+        state.cache.as_ref(),
+        &format!("validate:{}", api_key.key_prefix),
+        120,
+        Duration::from_secs(60),
+    )
+    .await?;
 
     let Ok(license) = state.storage.get_license_by_key(&req.key).await else {
         return Ok(Json(invalid("license not found")));
@@ -129,7 +172,10 @@ pub async fn validate(
         return Ok(Json(invalid("license does not match this product")));
     }
     if !license.is_usable(Utc::now()) {
-        return Ok(Json(invalid(format!("license is not active (status: {:?})", license.status))));
+        return Ok(Json(invalid(format!(
+            "license is not active (status: {:?})",
+            license.status
+        ))));
     }
 
     let backend = state.keygen.get(&license.backend_id)?;
@@ -144,8 +190,12 @@ pub async fn validate(
 
     let mut seats_used = state.storage.count_activations(license.id).await?;
     if let Some(fingerprint) = req.machine_fingerprint {
-        let already_activated =
-            state.storage.list_activations(license.id).await?.iter().any(|a| a.machine_fingerprint == fingerprint);
+        let already_activated = state
+            .storage
+            .list_activations(license.id)
+            .await?
+            .iter()
+            .any(|a| a.machine_fingerprint == fingerprint);
         if !already_activated {
             if seats_used >= license.seats {
                 return Ok(Json(ValidateLicenseResponse {
@@ -168,5 +218,10 @@ pub async fn validate(
         }
     }
 
-    Ok(Json(ValidateLicenseResponse { valid: true, reason: None, seats_total: Some(license.seats), seats_used: Some(seats_used) }))
+    Ok(Json(ValidateLicenseResponse {
+        valid: true,
+        reason: None,
+        seats_total: Some(license.seats),
+        seats_used: Some(seats_used),
+    }))
 }

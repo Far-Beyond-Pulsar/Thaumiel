@@ -45,9 +45,6 @@ lto = true
 codegen-units = 1
 strip = true
 
-[profile.dev.package.sqlx-macros]
-opt-level = 3
-
 # Plugin crates rely on `inventory::submit!` ctor-style statics to
 # self-register at link time (see thaumiel-core::registry). Some linkers
 # (notably MSVC) only pull an rlib's object file into the final binary when

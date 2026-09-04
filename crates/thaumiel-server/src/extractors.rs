@@ -7,10 +7,10 @@
 //!   required by `/v1/licenses/validate` -- the one route meant to be called
 //!   from a shipped application rather than an admin dashboard/CLI.
 
-use axum::extract::{FromRef, FromRequestParts};
-use axum::http::request::Parts;
-use axum::http::header;
 use async_trait::async_trait;
+use axum::extract::{FromRef, FromRequestParts};
+use axum::http::header;
+use axum::http::request::Parts;
 
 use thaumiel_auth::{api_key, jwt};
 use thaumiel_core::models::ApiKey;

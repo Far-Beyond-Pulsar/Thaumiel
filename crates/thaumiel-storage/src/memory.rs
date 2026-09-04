@@ -7,7 +7,9 @@ use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use thaumiel_core::ids::{ApiKeyId, LicenseId, OrganizationId, ProductId, UserId};
-use thaumiel_core::models::{Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User};
+use thaumiel_core::models::{
+    Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User,
+};
 use thaumiel_core::traits::{Pagination, Storage};
 use thaumiel_core::{Result, ThaumielError};
 
@@ -28,7 +30,9 @@ pub struct InMemoryStorage {
 
 impl InMemoryStorage {
     pub fn new() -> Self {
-        Self { tables: RwLock::new(Tables::default()) }
+        Self {
+            tables: RwLock::new(Tables::default()),
+        }
     }
 }
 
@@ -38,9 +42,17 @@ impl Default for InMemoryStorage {
     }
 }
 
-fn paginate<T: Clone>(mut items: Vec<T>, page: Pagination, sort_key: impl Fn(&T) -> std::cmp::Reverse<chrono::DateTime<chrono::Utc>>) -> Vec<T> {
+fn paginate<T: Clone>(
+    mut items: Vec<T>,
+    page: Pagination,
+    sort_key: impl Fn(&T) -> std::cmp::Reverse<chrono::DateTime<chrono::Utc>>,
+) -> Vec<T> {
     items.sort_by_key(sort_key);
-    items.into_iter().skip(page.offset as usize).take(page.limit as usize).collect()
+    items
+        .into_iter()
+        .skip(page.offset as usize)
+        .take(page.limit as usize)
+        .collect()
 }
 
 #[async_trait]
@@ -61,7 +73,10 @@ impl Storage for InMemoryStorage {
 
     async fn get_organization(&self, id: OrganizationId) -> Result<Organization> {
         let t = self.tables.read().await;
-        t.organizations.get(&id).cloned().ok_or_else(|| ThaumielError::NotFound(format!("organization '{id}'")))
+        t.organizations
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ThaumielError::NotFound(format!("organization '{id}'")))
     }
 
     async fn list_organizations(&self, page: Pagination) -> Result<Vec<Organization>> {
@@ -78,12 +93,24 @@ impl Storage for InMemoryStorage {
 
     async fn get_product(&self, id: ProductId) -> Result<Product> {
         let t = self.tables.read().await;
-        t.products.get(&id).cloned().ok_or_else(|| ThaumielError::NotFound(format!("product '{id}'")))
+        t.products
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ThaumielError::NotFound(format!("product '{id}'")))
     }
 
-    async fn list_products(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<Product>> {
+    async fn list_products(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<Product>> {
         let t = self.tables.read().await;
-        let items: Vec<_> = t.products.values().filter(|p| p.org_id == org_id).cloned().collect();
+        let items: Vec<_> = t
+            .products
+            .values()
+            .filter(|p| p.org_id == org_id)
+            .cloned()
+            .collect();
         Ok(paginate(items, page, |p| std::cmp::Reverse(p.created_at)))
     }
 
@@ -95,7 +122,10 @@ impl Storage for InMemoryStorage {
 
     async fn get_license(&self, id: LicenseId) -> Result<LicenseKey> {
         let t = self.tables.read().await;
-        t.licenses.get(&id).cloned().ok_or_else(|| ThaumielError::NotFound(format!("license '{id}'")))
+        t.licenses
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ThaumielError::NotFound(format!("license '{id}'")))
     }
 
     async fn get_license_by_key(&self, key: &str) -> Result<LicenseKey> {
@@ -107,9 +137,18 @@ impl Storage for InMemoryStorage {
             .ok_or_else(|| ThaumielError::NotFound(format!("license '{key}'")))
     }
 
-    async fn list_licenses(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<LicenseKey>> {
+    async fn list_licenses(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<LicenseKey>> {
         let t = self.tables.read().await;
-        let items: Vec<_> = t.licenses.values().filter(|l| l.org_id == org_id).cloned().collect();
+        let items: Vec<_> = t
+            .licenses
+            .values()
+            .filter(|l| l.org_id == org_id)
+            .cloned()
+            .collect();
         Ok(paginate(items, page, |l| std::cmp::Reverse(l.created_at)))
     }
 
@@ -134,12 +173,19 @@ impl Storage for InMemoryStorage {
 
     async fn count_activations(&self, license_id: LicenseId) -> Result<u32> {
         let t = self.tables.read().await;
-        Ok(t.activations.values().filter(|a| a.license_id == license_id).count() as u32)
+        Ok(t.activations
+            .values()
+            .filter(|a| a.license_id == license_id)
+            .count() as u32)
     }
 
     async fn list_activations(&self, license_id: LicenseId) -> Result<Vec<Activation>> {
         let t = self.tables.read().await;
-        Ok(t.activations.values().filter(|a| a.license_id == license_id).cloned().collect())
+        Ok(t.activations
+            .values()
+            .filter(|a| a.license_id == license_id)
+            .cloned()
+            .collect())
     }
 
     async fn create_api_key(&self, key: ApiKey) -> Result<ApiKey> {
@@ -159,13 +205,21 @@ impl Storage for InMemoryStorage {
 
     async fn list_api_keys(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<ApiKey>> {
         let t = self.tables.read().await;
-        let items: Vec<_> = t.api_keys.values().filter(|k| k.org_id == org_id).cloned().collect();
+        let items: Vec<_> = t
+            .api_keys
+            .values()
+            .filter(|k| k.org_id == org_id)
+            .cloned()
+            .collect();
         Ok(paginate(items, page, |k| std::cmp::Reverse(k.created_at)))
     }
 
     async fn revoke_api_key(&self, id: ApiKeyId) -> Result<ApiKey> {
         let mut t = self.tables.write().await;
-        let key = t.api_keys.get_mut(&id).ok_or_else(|| ThaumielError::NotFound(format!("api_key '{id}'")))?;
+        let key = t
+            .api_keys
+            .get_mut(&id)
+            .ok_or_else(|| ThaumielError::NotFound(format!("api_key '{id}'")))?;
         key.revoked_at = Some(chrono::Utc::now());
         Ok(key.clone())
     }
@@ -180,8 +234,14 @@ impl Storage for InMemoryStorage {
 
     async fn create_user(&self, user: User) -> Result<User> {
         let mut t = self.tables.write().await;
-        if t.users.values().any(|u| u.org_id == user.org_id && u.email == user.email) {
-            return Err(ThaumielError::Conflict(format!("user '{}' already exists", user.email)));
+        if t.users
+            .values()
+            .any(|u| u.org_id == user.org_id && u.email == user.email)
+        {
+            return Err(ThaumielError::Conflict(format!(
+                "user '{}' already exists",
+                user.email
+            )));
         }
         t.users.insert(user.id, user.clone());
         Ok(user)
@@ -198,7 +258,10 @@ impl Storage for InMemoryStorage {
 
     async fn get_user(&self, id: UserId) -> Result<User> {
         let t = self.tables.read().await;
-        t.users.get(&id).cloned().ok_or_else(|| ThaumielError::NotFound(format!("user '{id}'")))
+        t.users
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ThaumielError::NotFound(format!("user '{id}'")))
     }
 
     async fn append_audit_log(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
@@ -207,9 +270,18 @@ impl Storage for InMemoryStorage {
         Ok(entry)
     }
 
-    async fn list_audit_log(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<AuditLogEntry>> {
+    async fn list_audit_log(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<AuditLogEntry>> {
         let t = self.tables.read().await;
-        let items: Vec<_> = t.audit_log.values().filter(|e| e.org_id == org_id).cloned().collect();
+        let items: Vec<_> = t
+            .audit_log
+            .values()
+            .filter(|e| e.org_id == org_id)
+            .cloned()
+            .collect();
         Ok(paginate(items, page, |e| std::cmp::Reverse(e.created_at)))
     }
 }

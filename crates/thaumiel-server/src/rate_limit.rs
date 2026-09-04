@@ -8,7 +8,9 @@ use thaumiel_core::{Result, ThaumielError};
 pub async fn check(cache: &dyn Cache, key: &str, limit: i64, window: Duration) -> Result<()> {
     let count = cache.incr(key, Some(window)).await?;
     if count > limit {
-        return Err(ThaumielError::RateLimited { retry_after_secs: window.as_secs() });
+        return Err(ThaumielError::RateLimited {
+            retry_after_secs: window.as_secs(),
+        });
     }
     Ok(())
 }

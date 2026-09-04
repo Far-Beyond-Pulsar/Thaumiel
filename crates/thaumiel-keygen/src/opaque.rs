@@ -8,7 +8,9 @@ use async_trait::async_trait;
 use rand::RngCore;
 
 use thaumiel_core::registry::PluginContext;
-use thaumiel_core::traits::{GenerateRequest, GeneratedKey, KeygenBackend, ValidateContext, Validation};
+use thaumiel_core::traits::{
+    GenerateRequest, GeneratedKey, KeygenBackend, ValidateContext, Validation,
+};
 use thaumiel_core::Result;
 
 const PREFIX: &str = "thm-lic-";
@@ -39,14 +41,19 @@ impl KeygenBackend for OpaqueTokenKeygen {
         let mut bytes = [0u8; 20];
         rand::thread_rng().fill_bytes(&mut bytes);
         let key = format!("{PREFIX}{}", hex::encode(bytes));
-        Ok(GeneratedKey { key, backend_metadata: Default::default() })
+        Ok(GeneratedKey {
+            key,
+            backend_metadata: Default::default(),
+        })
     }
 
     async fn validate(&self, key: &str, _ctx: &ValidateContext) -> Result<Validation> {
         if key.starts_with(PREFIX) && key.len() > PREFIX.len() {
             Ok(Validation::Valid)
         } else {
-            Ok(Validation::Invalid { reason: "malformed opaque token".into() })
+            Ok(Validation::Invalid {
+                reason: "malformed opaque token".into(),
+            })
         }
     }
 }
@@ -76,7 +83,10 @@ mod tests {
             product_id: req.product_id,
             backend_metadata: generated.backend_metadata,
         };
-        assert_eq!(backend.validate(&generated.key, &ctx).await.unwrap(), Validation::Valid);
+        assert_eq!(
+            backend.validate(&generated.key, &ctx).await.unwrap(),
+            Validation::Valid
+        );
         assert!(matches!(
             backend.validate("garbage", &ctx).await.unwrap(),
             Validation::Invalid { .. }

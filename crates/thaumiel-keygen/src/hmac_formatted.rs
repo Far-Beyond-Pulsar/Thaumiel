@@ -12,9 +12,12 @@ use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
 use rand::RngCore;
 use sha2::Sha256;
+use subtle::ConstantTimeEq;
 
 use thaumiel_core::registry::PluginContext;
-use thaumiel_core::traits::{GenerateRequest, GeneratedKey, KeygenBackend, ValidateContext, Validation};
+use thaumiel_core::traits::{
+    GenerateRequest, GeneratedKey, KeygenBackend, ValidateContext, Validation,
+};
 use thaumiel_core::Result;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -31,7 +34,9 @@ impl HmacFormattedKeygen {
     pub fn new(_ctx: &PluginContext) -> Self {
         let secret = match std::env::var("THAUMIEL_KEYGEN_HMAC_SECRET") {
             Ok(hex_secret) => hex::decode(hex_secret.trim()).unwrap_or_else(|_| {
-                tracing::warn!("THAUMIEL_KEYGEN_HMAC_SECRET is not valid hex; falling back to a random secret");
+                tracing::warn!(
+                    "THAUMIEL_KEYGEN_HMAC_SECRET is not valid hex; falling back to a random secret"
+                );
                 random_secret()
             }),
             Err(_) => {
@@ -47,7 +52,8 @@ impl HmacFormattedKeygen {
     }
 
     fn checksum(&self, random_part: &[u8]) -> [u8; CHECKSUM_LEN] {
-        let mut mac = HmacSha256::new_from_slice(&self.secret).expect("HMAC accepts any key length");
+        let mut mac =
+            HmacSha256::new_from_slice(&self.secret).expect("HMAC accepts any key length");
         mac.update(random_part);
         let full = mac.finalize().into_bytes();
         let mut out = [0u8; CHECKSUM_LEN];
@@ -95,27 +101,42 @@ impl KeygenBackend for HmacFormattedKeygen {
         rand::thread_rng().fill_bytes(&mut random_part);
         let checksum = self.checksum(&random_part);
         let key = self.format_key(&random_part, &checksum);
-        Ok(GeneratedKey { key, backend_metadata: Default::default() })
+        Ok(GeneratedKey {
+            key,
+            backend_metadata: Default::default(),
+        })
     }
 
     async fn validate(&self, key: &str, _ctx: &ValidateContext) -> Result<Validation> {
         let Some(body) = key.strip_prefix(PREFIX) else {
-            return Ok(Validation::Invalid { reason: "missing key prefix".into() });
+            return Ok(Validation::Invalid {
+                reason: "missing key prefix".into(),
+            });
         };
         let stripped: String = body.chars().filter(|c| *c != '-').collect();
         let decoded = match BASE32_NOPAD.decode(stripped.to_uppercase().as_bytes()) {
             Ok(d) => d,
-            Err(_) => return Ok(Validation::Invalid { reason: "invalid base32 encoding".into() }),
+            Err(_) => {
+                return Ok(Validation::Invalid {
+                    reason: "invalid base32 encoding".into(),
+                })
+            }
         };
         if decoded.len() != RANDOM_LEN + CHECKSUM_LEN {
-            return Ok(Validation::Invalid { reason: "unexpected key length".into() });
+            return Ok(Validation::Invalid {
+                reason: "unexpected key length".into(),
+            });
         }
         let (random_part, checksum) = decoded.split_at(RANDOM_LEN);
         let expected = self.checksum(random_part);
-        if expected.as_slice() == checksum {
+
+        // Use subtle crate for guaranteed constant-time equality to prevent timing attacks
+        if bool::from(expected.as_slice().ct_eq(checksum)) {
             Ok(Validation::Valid)
         } else {
-            Ok(Validation::Invalid { reason: "checksum mismatch".into() })
+            Ok(Validation::Invalid {
+                reason: "checksum mismatch".into(),
+            })
         }
     }
 }
@@ -128,7 +149,9 @@ mod tests {
     use thaumiel_core::ids::{OrganizationId, ProductId};
 
     fn test_backend() -> HmacFormattedKeygen {
-        HmacFormattedKeygen { secret: b"unit-test-secret".to_vec() }
+        HmacFormattedKeygen {
+            secret: b"unit-test-secret".to_vec(),
+        }
     }
 
     #[tokio::test]
@@ -144,11 +167,21 @@ mod tests {
         let generated = backend.generate(&req).await.unwrap();
         assert!(generated.key.starts_with(PREFIX));
 
-        let ctx = ValidateContext { org_id: req.org_id, product_id: req.product_id, backend_metadata: Default::default() };
-        assert_eq!(backend.validate(&generated.key, &ctx).await.unwrap(), Validation::Valid);
+        let ctx = ValidateContext {
+            org_id: req.org_id,
+            product_id: req.product_id,
+            backend_metadata: Default::default(),
+        };
+        assert_eq!(
+            backend.validate(&generated.key, &ctx).await.unwrap(),
+            Validation::Valid
+        );
 
         let mut tampered = generated.key.clone();
         tampered.push('Z');
-        assert!(matches!(backend.validate(&tampered, &ctx).await.unwrap(), Validation::Invalid { .. }));
+        assert!(matches!(
+            backend.validate(&tampered, &ctx).await.unwrap(),
+            Validation::Invalid { .. }
+        ));
     }
 }
