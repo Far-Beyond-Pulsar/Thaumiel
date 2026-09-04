@@ -140,10 +140,6 @@ cargo test --workspace
 
 runs unit tests for password hashing, JWT round-trips, API key generation, and all three keygen backends, plus one end-to-end integration test that drives the full HTTP API — register, login, create a product, generate a license, mint an API key, validate — against `InMemoryStorage`, no external services required. `cargo clippy --workspace --all-targets` is clean.
 
-## Roadmap
-
-Documented rather than hidden: OIDC/SAML/LDAP auth providers, dynamic or WASM plugin loading (deliberately not chosen for this build — see `docs/ARCHITECTURE.md` for why), multi-tenant billing and usage metering, an admin web UI, and a SQL Server storage backend are all out of scope for now. The trait boundaries are already where they'd need to be for most of that to land as an addition, not a rewrite.
-
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
