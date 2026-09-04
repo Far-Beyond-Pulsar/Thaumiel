@@ -8,6 +8,7 @@ members = [
     "crates/thaumiel-auth",
     "crates/thaumiel-keygen",
     "crates/thaumiel-server",
+    "crates/thaumiel-ui",
 ]
 
 [workspace.package]
