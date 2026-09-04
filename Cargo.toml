@@ -47,3 +47,18 @@ strip = true
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
+
+# Plugin crates rely on `inventory::submit!` ctor-style statics to
+# self-register at link time (see thaumiel-core::registry). Some linkers
+# (notably MSVC) only pull an rlib's object file into the final binary when
+# something in it is directly referenced, and default dev builds split a
+# crate across many codegen units -- which can put a ctor static in a
+# different object file than whatever symbol got referenced, and silently
+# drop the registration. Forcing these plugin crates to a single codegen
+# unit even in dev builds keeps a registration atomic with the rest of its
+# crate; see docs/PLUGINS.md.
+[profile.dev.package.thaumiel-keygen]
+codegen-units = 1
+
+[profile.dev.package.thaumiel-auth]
+codegen-units = 1
