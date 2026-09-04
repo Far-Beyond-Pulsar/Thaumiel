@@ -12,10 +12,10 @@
 //!   that should also be reachable from automation without a human admin
 //!   session, but not from a `validate_only` key. See issue #9.
 
-use axum::extract::{FromRef, FromRequestParts};
-use axum::http::request::Parts;
-use axum::http::header;
 use async_trait::async_trait;
+use axum::extract::{FromRef, FromRequestParts};
+use axum::http::header;
+use axum::http::request::Parts;
 
 use thaumiel_auth::{api_key, jwt};
 use thaumiel_core::ids::OrganizationId;
@@ -42,8 +42,8 @@ fn presented_api_key(parts: &Parts) -> Option<&str> {
 /// touch `last_used_at` on a presented API key secret. Does not check scope
 /// -- callers decide what scopes they accept.
 async fn authenticate_api_key(state: &AppState, presented: &str) -> Result<ApiKey, ThaumielError> {
-    let prefix =
-        api_key::prefix_of(presented).ok_or_else(|| ThaumielError::Unauthenticated("malformed API key".into()))?;
+    let prefix = api_key::prefix_of(presented)
+        .ok_or_else(|| ThaumielError::Unauthenticated("malformed API key".into()))?;
     let record = state
         .storage
         .get_api_key_by_prefix(prefix)
@@ -96,8 +96,8 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let state = AppState::from_ref(state);
-        let presented =
-            presented_api_key(parts).ok_or_else(|| ThaumielError::Unauthenticated("missing API key".into()))?;
+        let presented = presented_api_key(parts)
+            .ok_or_else(|| ThaumielError::Unauthenticated("missing API key".into()))?;
         Ok(ApiKeyAuth(authenticate_api_key(&state, presented).await?))
     }
 }
@@ -143,15 +143,18 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let state = AppState::from_ref(state);
-        let presented =
-            presented_api_key(parts).ok_or_else(|| ThaumielError::Unauthenticated("missing credentials".into()))?;
+        let presented = presented_api_key(parts)
+            .ok_or_else(|| ThaumielError::Unauthenticated("missing credentials".into()))?;
 
         // API keys and JWTs never collide in shape: every API key this
         // server issues starts with "thm_" (see thaumiel_auth::api_key),
         // which is not a valid JWT header segment.
         if presented.starts_with("thm_") {
             let record = authenticate_api_key(&state, presented).await?;
-            if !matches!(record.scope, ApiKeyScope::Admin | ApiKeyScope::LicenseManager) {
+            if !matches!(
+                record.scope,
+                ApiKeyScope::Admin | ApiKeyScope::LicenseManager
+            ) {
                 return Err(ThaumielError::Forbidden(
                     "this API key's scope cannot manage licenses (needs 'admin' or 'license_manager')".into(),
                 )

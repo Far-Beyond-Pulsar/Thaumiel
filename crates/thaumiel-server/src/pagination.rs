@@ -22,6 +22,9 @@ pub struct PageQuery {
 impl From<PageQuery> for Pagination {
     fn from(q: PageQuery) -> Self {
         let limit = q.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-        Pagination { limit, offset: q.offset.unwrap_or(0) }
+        Pagination {
+            limit,
+            offset: q.offset.unwrap_or(0),
+        }
     }
 }

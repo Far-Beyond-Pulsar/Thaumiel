@@ -5,7 +5,13 @@ use crate::state::AppState;
 
 /// Best-effort audit trail write: logged and swallowed on failure so a
 /// storage hiccup on the audit log never fails the request that triggered it.
-pub async fn record(state: &AppState, org_id: OrganizationId, actor: impl Into<String>, action: &str, target: impl Into<String>) {
+pub async fn record(
+    state: &AppState,
+    org_id: OrganizationId,
+    actor: impl Into<String>,
+    action: &str,
+    target: impl Into<String>,
+) {
     let entry = AuditLogEntry {
         id: AuditLogId::new(),
         org_id,

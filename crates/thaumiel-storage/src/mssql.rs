@@ -22,9 +22,12 @@ use std::collections::HashMap;
 use tiberius::Row;
 use uuid::Uuid;
 
-use thaumiel_core::ids::{ActivationId, ApiKeyId, AuditLogId, LicenseId, OrganizationId, ProductId, UserId};
+use thaumiel_core::ids::{
+    ActivationId, ApiKeyId, AuditLogId, LicenseId, OrganizationId, ProductId, UserId,
+};
 use thaumiel_core::models::{
-    Activation, ApiKey, ApiKeyScope, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, Role, User,
+    Activation, ApiKey, ApiKeyScope, AuditLogEntry, LicenseKey, LicenseStatus, Organization,
+    Product, Role, User,
 };
 use thaumiel_core::traits::{Pagination, Storage};
 use thaumiel_core::{Result, ThaumielError};
@@ -37,7 +40,8 @@ pub struct MssqlStorage {
 
 impl MssqlStorage {
     pub async fn connect(url: &str, max_connections: u32) -> Result<Self> {
-        let manager = ConnectionManager::build(url).map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let manager =
+            ConnectionManager::build(url).map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let pool = Pool::builder()
             .max_size(max_connections)
             .build(manager)
@@ -78,7 +82,8 @@ fn col_i64(row: &Row, name: &str) -> Result<i64> {
 }
 
 fn parse_uuid(s: &str, field: &str) -> Result<Uuid> {
-    Uuid::parse_str(s).map_err(|e| ThaumielError::Storage(format!("invalid uuid in '{field}': {e}")))
+    Uuid::parse_str(s)
+        .map_err(|e| ThaumielError::Storage(format!("invalid uuid in '{field}': {e}")))
 }
 
 fn parse_dt(s: &str, field: &str) -> Result<DateTime<Utc>> {
@@ -95,7 +100,8 @@ fn parse_metadata(s: &str) -> Result<HashMap<String, String>> {
     if s.is_empty() {
         return Ok(HashMap::new());
     }
-    serde_json::from_str(s).map_err(|e| ThaumielError::Storage(format!("invalid metadata json: {e}")))
+    serde_json::from_str(s)
+        .map_err(|e| ThaumielError::Storage(format!("invalid metadata json: {e}")))
 }
 
 fn now_str() -> String {
@@ -105,7 +111,8 @@ fn dt_str(dt: DateTime<Utc>) -> String {
     dt.to_rfc3339()
 }
 fn metadata_json(meta: &HashMap<String, String>) -> Result<String> {
-    serde_json::to_string(meta).map_err(|e| ThaumielError::Storage(format!("failed to serialize metadata: {e}")))
+    serde_json::to_string(meta)
+        .map_err(|e| ThaumielError::Storage(format!("failed to serialize metadata: {e}")))
 }
 
 fn organization_from_row(row: &Row) -> Result<Organization> {
@@ -132,7 +139,9 @@ fn parse_status(s: &str) -> Result<LicenseStatus> {
         "suspended" => Ok(LicenseStatus::Suspended),
         "revoked" => Ok(LicenseStatus::Revoked),
         "expired" => Ok(LicenseStatus::Expired),
-        other => Err(ThaumielError::Storage(format!("invalid license status '{other}'"))),
+        other => Err(ThaumielError::Storage(format!(
+            "invalid license status '{other}'"
+        ))),
     }
 }
 fn license_status_str(status: LicenseStatus) -> &'static str {
@@ -174,7 +183,9 @@ fn parse_scope(s: &str) -> Result<ApiKeyScope> {
         "admin" => Ok(ApiKeyScope::Admin),
         "license_manager" => Ok(ApiKeyScope::LicenseManager),
         "validate_only" => Ok(ApiKeyScope::ValidateOnly),
-        other => Err(ThaumielError::Storage(format!("invalid api key scope '{other}'"))),
+        other => Err(ThaumielError::Storage(format!(
+            "invalid api key scope '{other}'"
+        ))),
     }
 }
 fn api_key_scope_str(scope: ApiKeyScope) -> &'static str {
@@ -245,16 +256,29 @@ impl Storage for MssqlStorage {
     }
 
     async fn migrate(&self) -> Result<()> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         // One batch: every statement in the file is individually idempotent
         // (OBJECT_ID / sys.indexes guarded), so there's no sqlx_migrate-style
         // tracking table needed for this single migration file.
-        conn.simple_query(MIGRATION_SQL).await.map_err(tiberius_err)?.into_results().await.map_err(tiberius_err)?;
+        conn.simple_query(MIGRATION_SQL)
+            .await
+            .map_err(tiberius_err)?
+            .into_results()
+            .await
+            .map_err(tiberius_err)?;
         Ok(())
     }
 
     async fn create_organization(&self, org: Organization) -> Result<Organization> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         conn.execute(
             "INSERT INTO organizations (id, name, created_at) VALUES (@P1, @P2, @P3)",
             &[&org.id.to_string(), &org.name, &dt_str(org.created_at)],
@@ -265,9 +289,16 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_organization(&self, id: OrganizationId) -> Result<Organization> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
-            .query("SELECT * FROM organizations WHERE id = @P1", &[&id.to_string()])
+            .query(
+                "SELECT * FROM organizations WHERE id = @P1",
+                &[&id.to_string()],
+            )
             .await
             .map_err(tiberius_err)?
             .into_row()
@@ -278,7 +309,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn list_organizations(&self, page: Pagination) -> Result<Vec<Organization>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
             .query(
                 "SELECT * FROM organizations ORDER BY created_at DESC OFFSET @P1 ROWS FETCH NEXT @P2 ROWS ONLY",
@@ -293,7 +328,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn create_product(&self, product: Product) -> Result<Product> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         conn.execute(
             "INSERT INTO products (id, org_id, name, default_keygen_backend, created_at) VALUES (@P1, @P2, @P3, @P4, @P5)",
             &[
@@ -310,7 +349,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_product(&self, id: ProductId) -> Result<Product> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
             .query("SELECT * FROM products WHERE id = @P1", &[&id.to_string()])
             .await
@@ -322,8 +365,16 @@ impl Storage for MssqlStorage {
         product_from_row(&row)
     }
 
-    async fn list_products(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<Product>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+    async fn list_products(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<Product>> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
             .query(
                 "SELECT * FROM products WHERE org_id = @P1 ORDER BY created_at DESC OFFSET @P2 ROWS FETCH NEXT @P3 ROWS ONLY",
@@ -338,7 +389,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn create_license(&self, license: LicenseKey) -> Result<LicenseKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let metadata = metadata_json(&license.metadata)?;
         conn.execute(
             "INSERT INTO license_keys (id, org_id, product_id, backend_id, key_value, status, seats, expires_at, metadata, created_at, revoked_at) \
@@ -363,9 +418,16 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_license(&self, id: LicenseId) -> Result<LicenseKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
-            .query("SELECT * FROM license_keys WHERE id = @P1", &[&id.to_string()])
+            .query(
+                "SELECT * FROM license_keys WHERE id = @P1",
+                &[&id.to_string()],
+            )
             .await
             .map_err(tiberius_err)?
             .into_row()
@@ -376,7 +438,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_license_by_key(&self, key: &str) -> Result<LicenseKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
             .query("SELECT * FROM license_keys WHERE key_value = @P1", &[&key])
             .await
@@ -388,8 +454,16 @@ impl Storage for MssqlStorage {
         license_from_row(&row)
     }
 
-    async fn list_licenses(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<LicenseKey>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+    async fn list_licenses(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<LicenseKey>> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
             .query(
                 "SELECT * FROM license_keys WHERE org_id = @P1 ORDER BY created_at DESC OFFSET @P2 ROWS FETCH NEXT @P3 ROWS ONLY",
@@ -404,7 +478,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn set_license_status(&self, id: LicenseId, status: LicenseStatus) -> Result<LicenseKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let revoked_at = matches!(status, LicenseStatus::Revoked).then(now_str);
         conn.execute(
             "UPDATE license_keys SET status = @P1, revoked_at = COALESCE(@P2, revoked_at) WHERE id = @P3",
@@ -417,7 +495,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn create_activation(&self, activation: Activation) -> Result<Activation> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         conn.execute(
             "INSERT INTO activations (id, license_id, machine_fingerprint, activated_at) VALUES (@P1, @P2, @P3, @P4)",
             &[&activation.id.to_string(), &activation.license_id.to_string(), &activation.machine_fingerprint, &dt_str(activation.activated_at)],
@@ -428,9 +510,16 @@ impl Storage for MssqlStorage {
     }
 
     async fn count_activations(&self, license_id: LicenseId) -> Result<u32> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
-            .query("SELECT COUNT(*) AS c FROM activations WHERE license_id = @P1", &[&license_id.to_string()])
+            .query(
+                "SELECT COUNT(*) AS c FROM activations WHERE license_id = @P1",
+                &[&license_id.to_string()],
+            )
             .await
             .map_err(tiberius_err)?
             .into_row()
@@ -442,9 +531,16 @@ impl Storage for MssqlStorage {
     }
 
     async fn list_activations(&self, license_id: LicenseId) -> Result<Vec<Activation>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
-            .query("SELECT * FROM activations WHERE license_id = @P1 ORDER BY activated_at DESC", &[&license_id.to_string()])
+            .query(
+                "SELECT * FROM activations WHERE license_id = @P1 ORDER BY activated_at DESC",
+                &[&license_id.to_string()],
+            )
             .await
             .map_err(tiberius_err)?
             .into_first_result()
@@ -453,8 +549,16 @@ impl Storage for MssqlStorage {
         rows.iter().map(activation_from_row).collect()
     }
 
-    async fn delete_activation(&self, license_id: LicenseId, activation_id: ActivationId) -> Result<()> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+    async fn delete_activation(
+        &self,
+        license_id: LicenseId,
+        activation_id: ActivationId,
+    ) -> Result<()> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         conn.execute(
             "DELETE FROM activations WHERE id = @P1 AND license_id = @P2",
             &[&activation_id.to_string(), &license_id.to_string()],
@@ -465,7 +569,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn create_api_key(&self, key: ApiKey) -> Result<ApiKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         conn.execute(
             "INSERT INTO api_keys (id, org_id, name, key_hash, key_prefix, scope, created_at, last_used_at, revoked_at) \
              VALUES (@P1, @P2, @P3, @P4, @P5, @P6, @P7, @P8, @P9)",
@@ -487,7 +595,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_api_key_by_prefix(&self, prefix: &str) -> Result<ApiKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
             .query("SELECT * FROM api_keys WHERE key_prefix = @P1", &[&prefix])
             .await
@@ -500,7 +612,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn list_api_keys(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<ApiKey>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
             .query(
                 "SELECT * FROM api_keys WHERE org_id = @P1 ORDER BY created_at DESC OFFSET @P2 ROWS FETCH NEXT @P3 ROWS ONLY",
@@ -515,10 +631,17 @@ impl Storage for MssqlStorage {
     }
 
     async fn revoke_api_key(&self, id: ApiKeyId) -> Result<ApiKey> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
-        conn.execute("UPDATE api_keys SET revoked_at = @P1 WHERE id = @P2", &[&now_str(), &id.to_string()])
+        let mut conn = self
+            .pool
+            .get()
             .await
-            .map_err(tiberius_err)?;
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        conn.execute(
+            "UPDATE api_keys SET revoked_at = @P1 WHERE id = @P2",
+            &[&now_str(), &id.to_string()],
+        )
+        .await
+        .map_err(tiberius_err)?;
         let row = conn
             .query("SELECT * FROM api_keys WHERE id = @P1", &[&id.to_string()])
             .await
@@ -531,15 +654,26 @@ impl Storage for MssqlStorage {
     }
 
     async fn touch_api_key_last_used(&self, id: ApiKeyId) -> Result<()> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
-        conn.execute("UPDATE api_keys SET last_used_at = @P1 WHERE id = @P2", &[&now_str(), &id.to_string()])
+        let mut conn = self
+            .pool
+            .get()
             .await
-            .map_err(tiberius_err)?;
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        conn.execute(
+            "UPDATE api_keys SET last_used_at = @P1 WHERE id = @P2",
+            &[&now_str(), &id.to_string()],
+        )
+        .await
+        .map_err(tiberius_err)?;
         Ok(())
     }
 
     async fn create_user(&self, user: User) -> Result<User> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         conn.execute(
             "INSERT INTO users (id, org_id, email, password_hash, role, created_at) VALUES (@P1, @P2, @P3, @P4, @P5, @P6)",
             &[
@@ -566,9 +700,16 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_user_by_email(&self, org_id: OrganizationId, email: &str) -> Result<User> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
-            .query("SELECT * FROM users WHERE org_id = @P1 AND email = @P2", &[&org_id.to_string(), &email])
+            .query(
+                "SELECT * FROM users WHERE org_id = @P1 AND email = @P2",
+                &[&org_id.to_string(), &email],
+            )
             .await
             .map_err(tiberius_err)?
             .into_row()
@@ -579,7 +720,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn get_user(&self, id: UserId) -> Result<User> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let row = conn
             .query("SELECT * FROM users WHERE id = @P1", &[&id.to_string()])
             .await
@@ -592,7 +737,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn list_users(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<User>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
             .query(
                 "SELECT * FROM users WHERE org_id = @P1 ORDER BY created_at ASC OFFSET @P2 ROWS FETCH NEXT @P3 ROWS ONLY",
@@ -607,7 +756,11 @@ impl Storage for MssqlStorage {
     }
 
     async fn append_audit_log(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let metadata = metadata_json(&entry.metadata)?;
         conn.execute(
             "INSERT INTO audit_log (id, org_id, actor, action, target, metadata, created_at) VALUES (@P1, @P2, @P3, @P4, @P5, @P6, @P7)",
@@ -618,8 +771,16 @@ impl Storage for MssqlStorage {
         Ok(entry)
     }
 
-    async fn list_audit_log(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<AuditLogEntry>> {
-        let mut conn = self.pool.get().await.map_err(|e| ThaumielError::Storage(e.to_string()))?;
+    async fn list_audit_log(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<AuditLogEntry>> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))?;
         let rows = conn
             .query(
                 "SELECT * FROM audit_log WHERE org_id = @P1 ORDER BY created_at DESC OFFSET @P2 ROWS FETCH NEXT @P3 ROWS ONLY",

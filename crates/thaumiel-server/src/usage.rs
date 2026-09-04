@@ -37,7 +37,10 @@ fn day_key(org_id: OrganizationId, date: &str) -> String {
 /// fail the caller's actual request.
 pub async fn record_validation(cache: &dyn Cache, org_id: OrganizationId) {
     let today = Utc::now().format("%Y-%m-%d").to_string();
-    if let Err(e) = cache.incr(&day_key(org_id, &today), Some(COUNTER_TTL)).await {
+    if let Err(e) = cache
+        .incr(&day_key(org_id, &today), Some(COUNTER_TTL))
+        .await
+    {
         tracing::warn!(error = %e, %org_id, "failed to record validate-call usage counter");
     }
 }
@@ -54,7 +57,9 @@ pub struct UsageDayCount {
 pub async fn validate_history(cache: &dyn Cache, org_id: OrganizationId) -> Vec<UsageDayCount> {
     let mut days = Vec::with_capacity(HISTORY_DAYS as usize);
     for offset in (0..HISTORY_DAYS).rev() {
-        let date = (Utc::now() - chrono::Duration::days(offset)).format("%Y-%m-%d").to_string();
+        let date = (Utc::now() - chrono::Duration::days(offset))
+            .format("%Y-%m-%d")
+            .to_string();
         let count = cache
             .get(&day_key(org_id, &date))
             .await

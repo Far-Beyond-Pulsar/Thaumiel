@@ -40,7 +40,10 @@ fn cors_layer(allowed_origins: &[String]) -> CorsLayer {
         })
         .collect();
 
-    CorsLayer::new().allow_origin(AllowOrigin::list(origins)).allow_methods(tower_http::cors::Any).allow_headers(tower_http::cors::Any)
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods(tower_http::cors::Any)
+        .allow_headers(tower_http::cors::Any)
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -68,7 +71,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/licenses/:id", get(licenses::get))
         .route("/licenses/:id/revoke", post(licenses::revoke))
         .route("/licenses/:id/activations", get(licenses::activations))
-        .route("/licenses/:id/activations/:activation_id", delete(licenses::revoke_activation))
+        .route(
+            "/licenses/:id/activations/:activation_id",
+            delete(licenses::revoke_activation),
+        )
         .route("/api-keys", post(api_keys::create).get(api_keys::list))
         .route("/api-keys/:id/revoke", post(api_keys::revoke))
         .route("/audit-log", get(audit_log::list))

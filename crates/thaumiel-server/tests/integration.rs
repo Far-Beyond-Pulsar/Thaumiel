@@ -20,7 +20,10 @@ fn test_state() -> AppState {
     thaumiel_server::plugins::ensure_builtin_plugins_linked();
     let storage = Arc::new(thaumiel_storage::InMemoryStorage::new());
     let cache = Arc::new(thaumiel_cache::InMemoryCache::new());
-    let ctx = PluginContext { storage: storage.clone(), cache: cache.clone() };
+    let ctx = PluginContext {
+        storage: storage.clone(),
+        cache: cache.clone(),
+    };
     AppState {
         config: Arc::new(AppConfig::default()),
         storage,
@@ -38,7 +41,10 @@ async fn body_json(response: axum::response::Response) -> Value {
 }
 
 fn json_request(method: &str, uri: &str, token: Option<&str>, body: Value) -> Request<Body> {
-    let mut builder = Request::builder().method(method).uri(uri).header("content-type", "application/json");
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json");
     if let Some(token) = token {
         builder = builder.header("authorization", format!("Bearer {token}"));
     }
@@ -67,12 +73,21 @@ async fn full_lifecycle() {
     // 2. Create a product using the default ("opaque") keygen backend.
     let res = app
         .clone()
-        .oneshot(json_request("POST", "/v1/products", Some(&token), json!({ "name": "Widget Pro" })))
+        .oneshot(json_request(
+            "POST",
+            "/v1/products",
+            Some(&token),
+            json!({ "name": "Widget Pro" }),
+        ))
         .await
         .unwrap();
     let status = res.status();
     let product = body_json(res).await;
-    assert_eq!(status, StatusCode::OK, "product creation should succeed: {product:?}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "product creation should succeed: {product:?}"
+    );
     let product_id = product["id"].as_str().unwrap().to_string();
     assert_eq!(product["default_keygen_backend"], "opaque");
 
@@ -87,7 +102,11 @@ async fn full_lifecycle() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "license generation should succeed");
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "license generation should succeed"
+    );
     let license = body_json(res).await;
     let license_key = license["key"].as_str().unwrap().to_string();
     assert!(license_key.starts_with("thm-lic-"));
@@ -103,7 +122,11 @@ async fn full_lifecycle() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "api key creation should succeed");
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "api key creation should succeed"
+    );
     let api_key = body_json(res).await;
     let api_key_plaintext = api_key["plaintext"].as_str().unwrap().to_string();
 
@@ -118,9 +141,16 @@ async fn full_lifecycle() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "validation call should succeed");
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "validation call should succeed"
+    );
     let validation = body_json(res).await;
-    assert_eq!(validation["valid"], true, "license should validate: {validation:?}");
+    assert_eq!(
+        validation["valid"], true,
+        "license should validate: {validation:?}"
+    );
     assert_eq!(validation["seats_used"], 1);
     assert_eq!(validation["seats_total"], 2);
 
@@ -162,7 +192,12 @@ async fn license_manager_api_key_can_manage_licenses() {
 
     let product = body_json(
         app.clone()
-            .oneshot(json_request("POST", "/v1/products", Some(&admin_token), json!({ "name": "Widget Pro" })))
+            .oneshot(json_request(
+                "POST",
+                "/v1/products",
+                Some(&admin_token),
+                json!({ "name": "Widget Pro" }),
+            ))
             .await
             .unwrap(),
     )
@@ -208,7 +243,11 @@ async fn license_manager_api_key_can_manage_licenses() {
         ))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::FORBIDDEN, "validate_only key must not manage licenses");
+    assert_eq!(
+        res.status(),
+        StatusCode::FORBIDDEN,
+        "validate_only key must not manage licenses"
+    );
 
     // A license_manager key must be able to, with no admin session involved.
     let res = app
@@ -243,7 +282,12 @@ async fn license_manager_api_key_can_manage_licenses() {
 
     let activations = body_json(
         app.clone()
-            .oneshot(json_request("GET", &format!("/v1/licenses/{license_id}/activations"), Some(&admin_token), json!({})))
+            .oneshot(json_request(
+                "GET",
+                &format!("/v1/licenses/{license_id}/activations"),
+                Some(&admin_token),
+                json!({}),
+            ))
             .await
             .unwrap(),
     )
@@ -265,12 +309,21 @@ async fn license_manager_api_key_can_manage_licenses() {
     assert_eq!(res.status(), StatusCode::NO_CONTENT);
 
     let activations = body_json(
-        app.oneshot(json_request("GET", &format!("/v1/licenses/{license_id}/activations"), Some(&admin_token), json!({})))
-            .await
-            .unwrap(),
+        app.oneshot(json_request(
+            "GET",
+            &format!("/v1/licenses/{license_id}/activations"),
+            Some(&admin_token),
+            json!({}),
+        ))
+        .await
+        .unwrap(),
     )
     .await;
-    assert_eq!(activations.as_array().unwrap().len(), 1, "one seat should have been freed");
+    assert_eq!(
+        activations.as_array().unwrap().len(),
+        1,
+        "one seat should have been freed"
+    );
 }
 
 /// Issue #10: an out-of-range `limit` is clamped rather than rejected or
@@ -295,16 +348,32 @@ async fn list_endpoints_respect_pagination_params() {
 
     for i in 0..3 {
         app.clone()
-            .oneshot(json_request("POST", "/v1/products", Some(&token), json!({ "name": format!("Product {i}") })))
+            .oneshot(json_request(
+                "POST",
+                "/v1/products",
+                Some(&token),
+                json!({ "name": format!("Product {i}") }),
+            ))
             .await
             .unwrap();
     }
 
     let page = body_json(
-        app.oneshot(json_request("GET", "/v1/products?limit=2", Some(&token), json!({}))).await.unwrap(),
+        app.oneshot(json_request(
+            "GET",
+            "/v1/products?limit=2",
+            Some(&token),
+            json!({}),
+        ))
+        .await
+        .unwrap(),
     )
     .await;
-    assert_eq!(page.as_array().unwrap().len(), 2, "limit=2 should return exactly two products");
+    assert_eq!(
+        page.as_array().unwrap().len(),
+        2,
+        "limit=2 should return exactly two products"
+    );
 }
 
 /// Issue #8: an owner can add a second user to their org, that user shows
@@ -340,7 +409,10 @@ async fn owner_can_invite_additional_users() {
     assert_eq!(res.status(), StatusCode::OK);
     let created = body_json(res).await;
     assert_eq!(created["email"], "teammate@acme.test");
-    assert!(created.get("password_hash").is_none(), "password_hash must never be serialized");
+    assert!(
+        created.get("password_hash").is_none(),
+        "password_hash must never be serialized"
+    );
 
     let members_session = body_json(
         app.clone()
@@ -370,10 +442,21 @@ async fn owner_can_invite_additional_users() {
     assert_eq!(res.status(), StatusCode::FORBIDDEN);
 
     let list = body_json(
-        app.oneshot(json_request("GET", "/v1/users", Some(&owner_token), json!({}))).await.unwrap(),
+        app.oneshot(json_request(
+            "GET",
+            "/v1/users",
+            Some(&owner_token),
+            json!({}),
+        ))
+        .await
+        .unwrap(),
     )
     .await;
-    assert_eq!(list.as_array().unwrap().len(), 2, "owner + the invited teammate");
+    assert_eq!(
+        list.as_array().unwrap().len(),
+        2,
+        "owner + the invited teammate"
+    );
 }
 
 /// Issue #6 (metering half): validate calls are counted per org per day,
@@ -398,7 +481,12 @@ async fn usage_summary_reflects_activity() {
 
     let product = body_json(
         app.clone()
-            .oneshot(json_request("POST", "/v1/products", Some(&token), json!({ "name": "Widget Pro" })))
+            .oneshot(json_request(
+                "POST",
+                "/v1/products",
+                Some(&token),
+                json!({ "name": "Widget Pro" }),
+            ))
             .await
             .unwrap(),
     )
@@ -434,7 +522,11 @@ async fn usage_summary_reflects_activity() {
     let api_key = api_key["plaintext"].as_str().unwrap().to_string();
 
     // Three validate calls today -- valid or not shouldn't matter to the counter.
-    for key in [license_key.as_str(), "thm-lic-does-not-exist", "thm-lic-also-missing"] {
+    for key in [
+        license_key.as_str(),
+        "thm-lic-does-not-exist",
+        "thm-lic-also-missing",
+    ] {
         app.clone()
             .oneshot(json_request(
                 "POST",
@@ -447,7 +539,9 @@ async fn usage_summary_reflects_activity() {
     }
 
     let summary = body_json(
-        app.oneshot(json_request("GET", "/v1/usage", Some(&token), json!({}))).await.unwrap(),
+        app.oneshot(json_request("GET", "/v1/usage", Some(&token), json!({})))
+            .await
+            .unwrap(),
     )
     .await;
     assert_eq!(summary["products"], 1);
@@ -455,7 +549,14 @@ async fn usage_summary_reflects_activity() {
     assert_eq!(summary["licenses_active"], 1);
     assert_eq!(summary["api_keys_active"], 1);
     let history = summary["validate_calls_last_14_days"].as_array().unwrap();
-    assert_eq!(history.len(), 14, "always zero-filled to a fixed 14-day window");
+    assert_eq!(
+        history.len(),
+        14,
+        "always zero-filled to a fixed 14-day window"
+    );
     let today = history.last().unwrap();
-    assert_eq!(today["count"], 3, "all three validate attempts, valid or not, should count");
+    assert_eq!(
+        today["count"], 3,
+        "all three validate attempts, valid or not, should count"
+    );
 }

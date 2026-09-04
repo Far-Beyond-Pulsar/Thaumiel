@@ -15,7 +15,14 @@ fn main() {
     // which takes real time) when something that could change its output
     // actually changed -- not on every `cargo build`, and specifically not
     // because `npm run build` itself just wrote into web/out a moment ago.
-    for watched in ["src", "public", "package.json", "package-lock.json", "next.config.mjs", "tsconfig.json"] {
+    for watched in [
+        "src",
+        "public",
+        "package.json",
+        "package-lock.json",
+        "next.config.mjs",
+        "tsconfig.json",
+    ] {
         println!("cargo:rerun-if-changed={}", web_dir.join(watched).display());
     }
     println!("cargo:rerun-if-env-changed=THAUMIEL_UI_SKIP_WEB_BUILD");
@@ -47,7 +54,11 @@ fn main() {
 fn command_exists(cmd: &str) -> bool {
     // `npm --version` rather than relying on a PATH-search helper crate --
     // this is the only thing build.rs needs it for.
-    Command::new(npm_invocation(cmd)).arg("--version").output().map(|o| o.status.success()).unwrap_or(false)
+    Command::new(npm_invocation(cmd))
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 fn run(dir: &Path, cmd: &str, args: &[&str]) {
@@ -57,7 +68,10 @@ fn run(dir: &Path, cmd: &str, args: &[&str]) {
         .status()
         .unwrap_or_else(|e| panic!("failed to spawn `{cmd} {}`: {e}", args.join(" ")));
     if !status.success() {
-        panic!("`{cmd} {}` exited with {status} -- see output above", args.join(" "));
+        panic!(
+            "`{cmd} {}` exited with {status} -- see output above",
+            args.join(" ")
+        );
     }
 }
 

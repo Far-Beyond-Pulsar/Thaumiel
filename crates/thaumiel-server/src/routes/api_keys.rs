@@ -33,8 +33,18 @@ pub async fn create(
         revoked_at: None,
     };
     let record = state.storage.create_api_key(record).await?;
-    audit::record(&state, identity.org_id, format!("user:{}", identity.user_id), "api_key.create", format!("api_key:{}", record.id)).await;
-    Ok(Json(CreateApiKeyResponse { plaintext: generated.plaintext, record }))
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "api_key.create",
+        format!("api_key:{}", record.id),
+    )
+    .await;
+    Ok(Json(CreateApiKeyResponse {
+        plaintext: generated.plaintext,
+        record,
+    }))
 }
 
 pub async fn list(
@@ -42,7 +52,10 @@ pub async fn list(
     AdminAuth(identity): AdminAuth,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<Json<Vec<ApiKey>>> {
-    let keys = state.storage.list_api_keys(identity.org_id, page.into()).await?;
+    let keys = state
+        .storage
+        .list_api_keys(identity.org_id, page.into())
+        .await?;
     Ok(Json(keys))
 }
 
@@ -51,11 +64,27 @@ pub async fn revoke(
     AdminAuth(identity): AdminAuth,
     Path(id): Path<ApiKeyId>,
 ) -> ApiResult<Json<ApiKey>> {
-    let keys = state.storage.list_api_keys(identity.org_id, Pagination { limit: 1000, offset: 0 }).await?;
+    let keys = state
+        .storage
+        .list_api_keys(
+            identity.org_id,
+            Pagination {
+                limit: 1000,
+                offset: 0,
+            },
+        )
+        .await?;
     if !keys.iter().any(|k| k.id == id) {
         return Err(ThaumielError::NotFound(format!("api_key '{id}'")).into());
     }
     let key = state.storage.revoke_api_key(id).await?;
-    audit::record(&state, identity.org_id, format!("user:{}", identity.user_id), "api_key.revoke", format!("api_key:{id}")).await;
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "api_key.revoke",
+        format!("api_key:{id}"),
+    )
+    .await;
     Ok(Json(key))
 }

@@ -25,7 +25,11 @@ pub struct ServerConfig {
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self { bind: "0.0.0.0".into(), port: 8080, cors_allowed_origins: Vec::new() }
+        Self {
+            bind: "0.0.0.0".into(),
+            port: 8080,
+            cors_allowed_origins: Vec::new(),
+        }
     }
 }
 
@@ -87,7 +91,10 @@ fn default_redis_url() -> String {
 
 impl Default for CacheConfig {
     fn default() -> Self {
-        Self { backend: CacheBackend::Memory, redis_url: default_redis_url() }
+        Self {
+            backend: CacheBackend::Memory,
+            redis_url: default_redis_url(),
+        }
     }
 }
 
@@ -135,7 +142,9 @@ fn default_keygen_backend() -> String {
 
 impl Default for KeygenConfig {
     fn default() -> Self {
-        Self { default_backend: default_keygen_backend() }
+        Self {
+            default_backend: default_keygen_backend(),
+        }
     }
 }
 
@@ -159,7 +168,11 @@ fn default_true() -> bool {
 
 impl Default for TelemetryConfig {
     fn default() -> Self {
-        Self { log_level: default_log_level(), json: false, metrics_enabled: true }
+        Self {
+            log_level: default_log_level(),
+            json: false,
+            metrics_enabled: true,
+        }
     }
 }
 

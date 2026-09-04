@@ -26,7 +26,9 @@ pub async fn create(
         return Err(ThaumielError::Forbidden("only an owner or admin can add users".into()).into());
     }
     if req.password.len() < 8 {
-        return Err(ThaumielError::InvalidInput("password must be at least 8 characters".into()).into());
+        return Err(
+            ThaumielError::InvalidInput("password must be at least 8 characters".into()).into(),
+        );
     }
 
     let user = User {
@@ -38,7 +40,14 @@ pub async fn create(
         created_at: Utc::now(),
     };
     let user = state.storage.create_user(user).await?;
-    audit::record(&state, identity.org_id, format!("user:{}", identity.user_id), "user.create", format!("user:{}", user.id)).await;
+    audit::record(
+        &state,
+        identity.org_id,
+        format!("user:{}", identity.user_id),
+        "user.create",
+        format!("user:{}", user.id),
+    )
+    .await;
     Ok(Json(user))
 }
 
@@ -47,6 +56,9 @@ pub async fn list(
     AdminAuth(identity): AdminAuth,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<Json<Vec<User>>> {
-    let users = state.storage.list_users(identity.org_id, page.into()).await?;
+    let users = state
+        .storage
+        .list_users(identity.org_id, page.into())
+        .await?;
     Ok(Json(users))
 }

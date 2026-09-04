@@ -21,7 +21,9 @@ use serde::{Deserialize, Serialize};
 
 use thaumiel_core::ids::{OrganizationId, ProductId};
 use thaumiel_core::registry::PluginContext;
-use thaumiel_core::traits::{GenerateRequest, GeneratedKey, KeygenBackend, ValidateContext, Validation};
+use thaumiel_core::traits::{
+    GenerateRequest, GeneratedKey, KeygenBackend, ValidateContext, Validation,
+};
 use thaumiel_core::{Result, ThaumielError};
 
 const PREFIX: &str = "ED1";
@@ -44,7 +46,10 @@ pub struct Ed25519SignedKeygen {
 impl Ed25519SignedKeygen {
     pub fn new(_ctx: &PluginContext) -> Self {
         let signing_key = match std::env::var("THAUMIEL_KEYGEN_ED25519_SECRET") {
-            Ok(hex_seed) => match hex::decode(hex_seed.trim()).ok().and_then(|b| <[u8; 32]>::try_from(b).ok()) {
+            Ok(hex_seed) => match hex::decode(hex_seed.trim())
+                .ok()
+                .and_then(|b| <[u8; 32]>::try_from(b).ok())
+            {
                 Some(seed) => SigningKey::from_bytes(&seed),
                 None => {
                     tracing::warn!(
@@ -110,45 +115,69 @@ impl KeygenBackend for Ed25519SignedKeygen {
 
         let mut backend_metadata = std::collections::HashMap::new();
         backend_metadata.insert("public_key".to_string(), self.verifying_key_hex());
-        Ok(GeneratedKey { key, backend_metadata })
+        Ok(GeneratedKey {
+            key,
+            backend_metadata,
+        })
     }
 
     async fn validate(&self, key: &str, ctx: &ValidateContext) -> Result<Validation> {
         let parts: Vec<&str> = key.split('.').collect();
         let [prefix, payload_b64, sig_b64] = parts.as_slice() else {
-            return Ok(Validation::Invalid { reason: "malformed key structure".into() });
+            return Ok(Validation::Invalid {
+                reason: "malformed key structure".into(),
+            });
         };
         if *prefix != PREFIX {
-            return Ok(Validation::Invalid { reason: "unrecognized key prefix".into() });
+            return Ok(Validation::Invalid {
+                reason: "unrecognized key prefix".into(),
+            });
         }
 
         let Ok(payload_bytes) = URL_SAFE_NO_PAD.decode(payload_b64) else {
-            return Ok(Validation::Invalid { reason: "invalid payload encoding".into() });
+            return Ok(Validation::Invalid {
+                reason: "invalid payload encoding".into(),
+            });
         };
         let Ok(sig_bytes) = URL_SAFE_NO_PAD.decode(sig_b64) else {
-            return Ok(Validation::Invalid { reason: "invalid signature encoding".into() });
+            return Ok(Validation::Invalid {
+                reason: "invalid signature encoding".into(),
+            });
         };
         let Ok(sig_array) = <[u8; 64]>::try_from(sig_bytes.as_slice()) else {
-            return Ok(Validation::Invalid { reason: "invalid signature length".into() });
+            return Ok(Validation::Invalid {
+                reason: "invalid signature length".into(),
+            });
         };
         let signature = Signature::from_bytes(&sig_array);
 
-        let verifying_key = self.verifying_key_from_metadata(ctx).unwrap_or_else(|| self.signing_key.verifying_key());
+        let verifying_key = self
+            .verifying_key_from_metadata(ctx)
+            .unwrap_or_else(|| self.signing_key.verifying_key());
         if verifying_key.verify(&payload_bytes, &signature).is_err() {
-            return Ok(Validation::Invalid { reason: "signature verification failed".into() });
+            return Ok(Validation::Invalid {
+                reason: "signature verification failed".into(),
+            });
         }
 
         let Ok(payload) = serde_json::from_slice::<Payload>(&payload_bytes) else {
-            return Ok(Validation::Invalid { reason: "invalid payload contents".into() });
+            return Ok(Validation::Invalid {
+                reason: "invalid payload contents".into(),
+            });
         };
 
         if payload.org_id != ctx.org_id || payload.product_id != ctx.product_id {
-            return Ok(Validation::Invalid { reason: "key does not match organization/product".into() });
+            return Ok(Validation::Invalid {
+                reason: "key does not match organization/product".into(),
+            });
         }
         if let Some(exp) = payload.expires_at {
-            let expires_at: DateTime<Utc> = Utc.timestamp_opt(exp, 0).single().unwrap_or_else(Utc::now);
+            let expires_at: DateTime<Utc> =
+                Utc.timestamp_opt(exp, 0).single().unwrap_or_else(Utc::now);
             if Utc::now() > expires_at {
-                return Ok(Validation::Invalid { reason: "key expired".into() });
+                return Ok(Validation::Invalid {
+                    reason: "key expired".into(),
+                });
             }
         }
 
@@ -177,7 +206,9 @@ mod tests {
     use super::*;
 
     fn test_backend() -> Ed25519SignedKeygen {
-        Ed25519SignedKeygen { signing_key: SigningKey::generate(&mut OsRng) }
+        Ed25519SignedKeygen {
+            signing_key: SigningKey::generate(&mut OsRng),
+        }
     }
 
     #[tokio::test]
@@ -185,21 +216,44 @@ mod tests {
         let backend = test_backend();
         let org_id = OrganizationId::new();
         let product_id = ProductId::new();
-        let req = GenerateRequest { org_id, product_id, seats: 5, expires_at: None, metadata: Default::default() };
+        let req = GenerateRequest {
+            org_id,
+            product_id,
+            seats: 5,
+            expires_at: None,
+            metadata: Default::default(),
+        };
 
         let generated = backend.generate(&req).await.unwrap();
         assert!(generated.key.starts_with("ED1."));
 
-        let ctx = ValidateContext { org_id, product_id, backend_metadata: generated.backend_metadata.clone() };
-        assert_eq!(backend.validate(&generated.key, &ctx).await.unwrap(), Validation::Valid);
+        let ctx = ValidateContext {
+            org_id,
+            product_id,
+            backend_metadata: generated.backend_metadata.clone(),
+        };
+        assert_eq!(
+            backend.validate(&generated.key, &ctx).await.unwrap(),
+            Validation::Valid
+        );
 
         // Wrong product should fail even with a structurally valid signature.
-        let wrong_ctx = ValidateContext { org_id, product_id: ProductId::new(), backend_metadata: generated.backend_metadata };
-        assert!(matches!(backend.validate(&generated.key, &wrong_ctx).await.unwrap(), Validation::Invalid { .. }));
+        let wrong_ctx = ValidateContext {
+            org_id,
+            product_id: ProductId::new(),
+            backend_metadata: generated.backend_metadata,
+        };
+        assert!(matches!(
+            backend.validate(&generated.key, &wrong_ctx).await.unwrap(),
+            Validation::Invalid { .. }
+        ));
 
         // Tampering with the payload must break the signature check.
         let mut tampered = generated.key.clone();
         tampered.push('a');
-        assert!(matches!(backend.validate(&tampered, &ctx).await.unwrap(), Validation::Invalid { .. }));
+        assert!(matches!(
+            backend.validate(&tampered, &ctx).await.unwrap(),
+            Validation::Invalid { .. }
+        ));
     }
 }

@@ -13,6 +13,9 @@ pub async fn list(
     AdminAuth(identity): AdminAuth,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<Json<Vec<AuditLogEntry>>> {
-    let entries = state.storage.list_audit_log(identity.org_id, page.into()).await?;
+    let entries = state
+        .storage
+        .list_audit_log(identity.org_id, page.into())
+        .await?;
     Ok(Json(entries))
 }

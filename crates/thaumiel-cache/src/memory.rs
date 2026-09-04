@@ -28,7 +28,9 @@ pub struct InMemoryCache {
 
 impl InMemoryCache {
     pub fn new() -> Self {
-        Self { store: Mutex::new(HashMap::new()) }
+        Self {
+            store: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -60,7 +62,13 @@ impl Cache for InMemoryCache {
     async fn set(&self, key: &str, value: &str, ttl: Option<Duration>) -> Result<()> {
         let expires_at = ttl.map(|d| Instant::now() + d);
         let mut store = self.store.lock().expect("cache mutex poisoned");
-        store.insert(key.to_string(), Entry { value: value.to_string(), expires_at });
+        store.insert(
+            key.to_string(),
+            Entry {
+                value: value.to_string(),
+                expires_at,
+            },
+        );
         Ok(())
     }
 
@@ -85,7 +93,13 @@ impl Cache for InMemoryCache {
             }
             None => {
                 let expires_at = ttl.map(|d| now + d);
-                store.insert(key.to_string(), Entry { value: "1".to_string(), expires_at });
+                store.insert(
+                    key.to_string(),
+                    Entry {
+                        value: "1".to_string(),
+                        expires_at,
+                    },
+                );
                 Ok(1)
             }
         }

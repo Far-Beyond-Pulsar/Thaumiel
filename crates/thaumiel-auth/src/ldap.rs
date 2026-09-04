@@ -57,7 +57,11 @@ impl LdapAuthProvider {
             base_dn: env_var("THAUMIEL_LDAP_BASE_DN"),
             user_filter: {
                 let f = env_var("THAUMIEL_LDAP_USER_FILTER");
-                if f.is_empty() { "(mail={email})".to_string() } else { f }
+                if f.is_empty() {
+                    "(mail={email})".to_string()
+                } else {
+                    f
+                }
             },
         }
     }
@@ -69,7 +73,11 @@ impl LdapAuthProvider {
             tracing::error!(error = %e, url = %self.url, "ldap connection failed");
         })?;
         ldap3::drive!(conn);
-        ldap.simple_bind(dn, password).await.map_err(|_| ())?.success().map_err(|_| ())?;
+        ldap.simple_bind(dn, password)
+            .await
+            .map_err(|_| ())?
+            .success()
+            .map_err(|_| ())?;
         Ok(ldap)
     }
 }
@@ -81,7 +89,12 @@ impl AuthProvider for LdapAuthProvider {
     }
 
     async fn authenticate(&self, credentials: Credentials) -> Result<Identity> {
-        let Credentials::Password { org_id, email, password } = credentials else {
+        let Credentials::Password {
+            org_id,
+            email,
+            password,
+        } = credentials
+        else {
             return Err(ThaumielError::InvalidInput(
                 "the 'ldap' auth provider only supports password credentials".into(),
             ));
@@ -89,8 +102,13 @@ impl AuthProvider for LdapAuthProvider {
         let invalid = || ThaumielError::Unauthenticated("invalid email or password".into());
 
         // 1. Service-account bind, then search for the user's own DN.
-        let mut search_conn = self.bind(&self.bind_dn, &self.bind_password).await.map_err(|_| invalid())?;
-        let filter = self.user_filter.replace("{email}", &ldap3::ldap_escape(&email));
+        let mut search_conn = self
+            .bind(&self.bind_dn, &self.bind_password)
+            .await
+            .map_err(|_| invalid())?;
+        let filter = self
+            .user_filter
+            .replace("{email}", &ldap3::ldap_escape(&email));
         let (entries, _) = search_conn
             .search(&self.base_dn, Scope::Subtree, &filter, vec!["dn"])
             .await
@@ -102,7 +120,10 @@ impl AuthProvider for LdapAuthProvider {
         let user_dn = SearchEntry::construct(entry).dn;
 
         // 2. The real credential check: bind as the user's own DN.
-        let mut user_conn = self.bind(&user_dn, &password).await.map_err(|_| invalid())?;
+        let mut user_conn = self
+            .bind(&user_dn, &password)
+            .await
+            .map_err(|_| invalid())?;
         let _ = user_conn.unbind().await;
 
         // 3. Just-in-time provision a local User row on first successful
@@ -124,7 +145,12 @@ impl AuthProvider for LdapAuthProvider {
             }
         };
 
-        Ok(Identity { user_id: user.id, org_id: user.org_id, email: user.email, role: user.role })
+        Ok(Identity {
+            user_id: user.id,
+            org_id: user.org_id,
+            email: user.email,
+            role: user.role,
+        })
     }
 }
 

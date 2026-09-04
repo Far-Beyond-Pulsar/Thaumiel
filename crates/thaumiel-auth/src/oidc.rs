@@ -26,7 +26,14 @@ use tokio::sync::OnceCell;
 /// (`EndpointNotSet`). This has to be named exactly -- plain `CoreClient`
 /// (all six default to `EndpointNotSet`) is a *different, incompatible*
 /// concrete type from what `from_provider_metadata` hands back.
-type DiscoveredClient = CoreClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointMaybeSet, EndpointMaybeSet>;
+type DiscoveredClient = CoreClient<
+    EndpointSet,
+    EndpointNotSet,
+    EndpointNotSet,
+    EndpointNotSet,
+    EndpointMaybeSet,
+    EndpointMaybeSet,
+>;
 
 use thaumiel_core::ids::UserId;
 use thaumiel_core::models::{Role, User};
@@ -67,7 +74,13 @@ impl OidcAuthProvider {
             .build()
             .expect("building the OIDC discovery HTTP client should never fail");
 
-        Self { storage: ctx.storage.clone(), issuer_url, client_id, http_client, metadata: OnceCell::new() }
+        Self {
+            storage: ctx.storage.clone(),
+            issuer_url,
+            client_id,
+            http_client,
+            metadata: OnceCell::new(),
+        }
     }
 
     /// Discovers (once, cached thereafter) and wraps the provider metadata
@@ -77,14 +90,24 @@ impl OidcAuthProvider {
         let metadata = self
             .metadata
             .get_or_try_init(|| async {
-                let issuer = IssuerUrl::new(self.issuer_url.clone())
-                    .map_err(|e| ThaumielError::Config(format!("invalid THAUMIEL_OIDC_ISSUER_URL: {e}")))?;
+                let issuer = IssuerUrl::new(self.issuer_url.clone()).map_err(|e| {
+                    ThaumielError::Config(format!("invalid THAUMIEL_OIDC_ISSUER_URL: {e}"))
+                })?;
                 CoreProviderMetadata::discover_async(issuer, &self.http_client)
                     .await
-                    .map_err(|e| ThaumielError::Internal(format!("oidc discovery against {} failed: {e}", self.issuer_url)))
+                    .map_err(|e| {
+                        ThaumielError::Internal(format!(
+                            "oidc discovery against {} failed: {e}",
+                            self.issuer_url
+                        ))
+                    })
             })
             .await?;
-        Ok(CoreClient::from_provider_metadata(metadata.clone(), ClientId::new(self.client_id.clone()), None))
+        Ok(CoreClient::from_provider_metadata(
+            metadata.clone(),
+            ClientId::new(self.client_id.clone()),
+            None,
+        ))
     }
 }
 
@@ -96,7 +119,9 @@ impl AuthProvider for OidcAuthProvider {
 
     async fn authenticate(&self, credentials: Credentials) -> Result<Identity> {
         let Credentials::OidcToken { org_id, id_token } = credentials else {
-            return Err(ThaumielError::InvalidInput("the 'oidc' auth provider only supports OIDC tokens".into()));
+            return Err(ThaumielError::InvalidInput(
+                "the 'oidc' auth provider only supports OIDC tokens".into(),
+            ));
         };
         let invalid = || ThaumielError::Unauthenticated("invalid OIDC token".into());
 
@@ -111,12 +136,17 @@ impl AuthProvider for OidcAuthProvider {
         // obtained it directly from the IdP), so there's no nonce of our own
         // to check it against -- signature/issuer/audience/expiry are still
         // fully verified regardless.
-        let claims = token.claims(&verifier, |_nonce: Option<&Nonce>| Ok(())).map_err(|e| {
-            tracing::warn!(error = %e, "oidc id_token verification failed");
-            invalid()
-        })?;
+        let claims = token
+            .claims(&verifier, |_nonce: Option<&Nonce>| Ok(()))
+            .map_err(|e| {
+                tracing::warn!(error = %e, "oidc id_token verification failed");
+                invalid()
+            })?;
 
-        let email = claims.email().map(|e| e.as_str().to_string()).ok_or_else(invalid)?;
+        let email = claims
+            .email()
+            .map(|e| e.as_str().to_string())
+            .ok_or_else(invalid)?;
 
         let user = match self.storage.get_user_by_email(org_id, &email).await {
             Ok(user) => user,
@@ -133,7 +163,12 @@ impl AuthProvider for OidcAuthProvider {
             }
         };
 
-        Ok(Identity { user_id: user.id, org_id: user.org_id, email: user.email, role: user.role })
+        Ok(Identity {
+            user_id: user.id,
+            org_id: user.org_id,
+            email: user.email,
+            role: user.role,
+        })
     }
 }
 

@@ -8,7 +8,7 @@
 # docs/CONFIGURATION.md). Pass `--build-arg FEATURES=` (empty) to build
 # without it.
 
-FROM rust:1.79-bookworm AS builder
+FROM rust:latest AS builder
 WORKDIR /build
 
 # Native dependencies for the `saml` feature's XML-DSig verification

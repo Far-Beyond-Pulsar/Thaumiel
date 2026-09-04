@@ -62,7 +62,9 @@ impl SamlAuthProvider {
         let sp_entity_id = env_var("THAUMIEL_SAML_SP_ENTITY_ID");
         let acs_url = env_var("THAUMIEL_SAML_ACS_URL");
 
-        if (idp_metadata_url.is_none() && idp_metadata_path.is_none()) || sp_entity_id.is_none() || acs_url.is_none()
+        if (idp_metadata_url.is_none() && idp_metadata_path.is_none())
+            || sp_entity_id.is_none()
+            || acs_url.is_none()
         {
             tracing::warn!(
                 "SAML is not fully configured -- need THAUMIEL_SAML_SP_ENTITY_ID, \
@@ -72,7 +74,14 @@ impl SamlAuthProvider {
             );
         }
 
-        Self { storage: ctx.storage.clone(), idp_metadata_url, idp_metadata_path, sp_entity_id, acs_url, sp: OnceCell::new() }
+        Self {
+            storage: ctx.storage.clone(),
+            idp_metadata_url,
+            idp_metadata_path,
+            sp_entity_id,
+            acs_url,
+            sp: OnceCell::new(),
+        }
     }
 
     async fn fetch_idp_metadata(&self) -> Result<EntityDescriptor> {
@@ -80,31 +89,42 @@ impl SamlAuthProvider {
             reqwest::get(url)
                 .await
                 .and_then(|r| r.error_for_status())
-                .map_err(|e| ThaumielError::Internal(format!("failed to fetch SAML IdP metadata from {url}: {e}")))?
+                .map_err(|e| {
+                    ThaumielError::Internal(format!(
+                        "failed to fetch SAML IdP metadata from {url}: {e}"
+                    ))
+                })?
                 .text()
                 .await
-                .map_err(|e| ThaumielError::Internal(format!("failed to read SAML IdP metadata response: {e}")))?
+                .map_err(|e| {
+                    ThaumielError::Internal(format!(
+                        "failed to read SAML IdP metadata response: {e}"
+                    ))
+                })?
         } else if let Some(path) = &self.idp_metadata_path {
-            tokio::fs::read_to_string(path)
-                .await
-                .map_err(|e| ThaumielError::Config(format!("failed to read THAUMIEL_SAML_IDP_METADATA_PATH ({path}): {e}")))?
+            tokio::fs::read_to_string(path).await.map_err(|e| {
+                ThaumielError::Config(format!(
+                    "failed to read THAUMIEL_SAML_IDP_METADATA_PATH ({path}): {e}"
+                ))
+            })?
         } else {
             return Err(ThaumielError::Config(
                 "SAML is not configured: set THAUMIEL_SAML_IDP_METADATA_URL or _PATH".into(),
             ));
         };
 
-        saml_de::from_str(&xml).map_err(|e| ThaumielError::Config(format!("failed to parse SAML IdP metadata XML: {e}")))
+        saml_de::from_str(&xml).map_err(|e| {
+            ThaumielError::Config(format!("failed to parse SAML IdP metadata XML: {e}"))
+        })
     }
 
     async fn service_provider(&self) -> Result<&ServiceProvider> {
         self.sp
             .get_or_try_init(|| async {
                 let idp_metadata = self.fetch_idp_metadata().await?;
-                let entity_id = self
-                    .sp_entity_id
-                    .clone()
-                    .ok_or_else(|| ThaumielError::Config("THAUMIEL_SAML_SP_ENTITY_ID not set".into()))?;
+                let entity_id = self.sp_entity_id.clone().ok_or_else(|| {
+                    ThaumielError::Config("THAUMIEL_SAML_SP_ENTITY_ID not set".into())
+                })?;
                 let acs_url = self
                     .acs_url
                     .clone()
@@ -123,7 +143,11 @@ impl SamlAuthProvider {
                     .allow_idp_initiated(true)
                     .idp_metadata(idp_metadata)
                     .build()
-                    .map_err(|e| ThaumielError::Internal(format!("failed to build SAML service provider: {e}")))
+                    .map_err(|e| {
+                        ThaumielError::Internal(format!(
+                            "failed to build SAML service provider: {e}"
+                        ))
+                    })
             })
             .await
     }
@@ -133,9 +157,12 @@ impl SamlAuthProvider {
     /// side of the trust relationship.
     pub async fn metadata_xml(&self) -> Result<String> {
         let sp = self.service_provider().await?;
-        let metadata =
-            sp.metadata().map_err(|e| ThaumielError::Internal(format!("failed to build SP metadata: {e}")))?;
-        metadata.to_string().map_err(|e| ThaumielError::Internal(format!("failed to serialize SP metadata: {e}")))
+        let metadata = sp
+            .metadata()
+            .map_err(|e| ThaumielError::Internal(format!("failed to build SP metadata: {e}")))?;
+        metadata
+            .to_string()
+            .map_err(|e| ThaumielError::Internal(format!("failed to serialize SP metadata: {e}")))
     }
 
     /// Where to redirect the browser to start an SP-initiated login for
@@ -146,14 +173,20 @@ impl SamlAuthProvider {
         let sp = self.service_provider().await?;
         let idp_sso_url = sp
             .sso_binding_location(HTTP_REDIRECT_BINDING)
-            .ok_or_else(|| ThaumielError::Config("IdP metadata has no HTTP-Redirect SSO binding".into()))?;
-        let authn_request = sp
-            .make_authentication_request(&idp_sso_url)
-            .map_err(|e| ThaumielError::Internal(format!("failed to build SAML AuthnRequest: {e}")))?;
+            .ok_or_else(|| {
+                ThaumielError::Config("IdP metadata has no HTTP-Redirect SSO binding".into())
+            })?;
+        let authn_request = sp.make_authentication_request(&idp_sso_url).map_err(|e| {
+            ThaumielError::Internal(format!("failed to build SAML AuthnRequest: {e}"))
+        })?;
         let url = authn_request
             .redirect(&org_id.to_string())
-            .map_err(|e| ThaumielError::Internal(format!("failed to build SAML redirect URL: {e}")))?
-            .ok_or_else(|| ThaumielError::Internal("IdP metadata has no usable SSO destination".into()))?;
+            .map_err(|e| {
+                ThaumielError::Internal(format!("failed to build SAML redirect URL: {e}"))
+            })?
+            .ok_or_else(|| {
+                ThaumielError::Internal("IdP metadata has no usable SSO destination".into())
+            })?;
         Ok(url.to_string())
     }
 
@@ -164,14 +197,17 @@ impl SamlAuthProvider {
     pub async fn handle_acs(&self, saml_response_b64: &str, relay_state: &str) -> Result<Identity> {
         let invalid = || ThaumielError::Unauthenticated("invalid SAML response".into());
 
-        let org_id: OrganizationId =
-            relay_state.parse().map_err(|_| ThaumielError::InvalidInput("invalid or missing RelayState".into()))?;
+        let org_id: OrganizationId = relay_state
+            .parse()
+            .map_err(|_| ThaumielError::InvalidInput("invalid or missing RelayState".into()))?;
 
         let sp = self.service_provider().await?;
-        let assertion = sp.parse_base64_response(saml_response_b64, None).map_err(|e| {
-            tracing::warn!(error = %e, "SAML response verification failed");
-            invalid()
-        })?;
+        let assertion = sp
+            .parse_base64_response(saml_response_b64, None)
+            .map_err(|e| {
+                tracing::warn!(error = %e, "SAML response verification failed");
+                invalid()
+            })?;
 
         let email = extract_email(&assertion).ok_or_else(invalid)?;
 
@@ -190,7 +226,12 @@ impl SamlAuthProvider {
             }
         };
 
-        Ok(Identity { user_id: user.id, org_id: user.org_id, email: user.email, role: user.role })
+        Ok(Identity {
+            user_id: user.id,
+            org_id: user.org_id,
+            email: user.email,
+            role: user.role,
+        })
     }
 }
 
@@ -206,17 +247,31 @@ fn extract_email(assertion: &Assertion) -> Option<String> {
         "urn:oid:0.9.2342.19200300.100.1.3",
     ];
 
-    let from_attributes = assertion.attribute_statements.as_ref().and_then(|statements| {
-        statements
-            .iter()
-            .flat_map(|s| s.attributes.iter())
-            .find(|a| {
-                a.name.as_deref().is_some_and(|n| EMAIL_ATTRIBUTE_NAMES.contains(&n))
-                    || a.friendly_name.as_deref().is_some_and(|n| n.eq_ignore_ascii_case("email"))
-            })
-            .and_then(|a| a.values.first())
-            .and_then(|v| v.value.clone())
-    });
+    let from_attributes = assertion
+        .attribute_statements
+        .as_ref()
+        .and_then(|statements| {
+            statements
+                .iter()
+                .flat_map(|s| s.attributes.iter())
+                .find(|a| {
+                    a.name
+                        .as_deref()
+                        .is_some_and(|n| EMAIL_ATTRIBUTE_NAMES.contains(&n))
+                        || a.friendly_name
+                            .as_deref()
+                            .is_some_and(|n| n.eq_ignore_ascii_case("email"))
+                })
+                .and_then(|a| a.values.first())
+                .and_then(|v| v.value.clone())
+        });
 
-    from_attributes.or_else(|| assertion.subject.as_ref()?.name_id.as_ref().map(|n| n.value.clone()))
+    from_attributes.or_else(|| {
+        assertion
+            .subject
+            .as_ref()?
+            .name_id
+            .as_ref()
+            .map(|n| n.value.clone())
+    })
 }

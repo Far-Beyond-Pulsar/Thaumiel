@@ -13,9 +13,12 @@ use sqlx::{ColumnIndex, Decode, Row, Type};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use thaumiel_core::ids::{ActivationId, ApiKeyId, AuditLogId, LicenseId, OrganizationId, ProductId, UserId};
+use thaumiel_core::ids::{
+    ActivationId, ApiKeyId, AuditLogId, LicenseId, OrganizationId, ProductId, UserId,
+};
 use thaumiel_core::models::{
-    Activation, ApiKey, ApiKeyScope, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, Role, User,
+    Activation, ApiKey, ApiKeyScope, AuditLogEntry, LicenseKey, LicenseStatus, Organization,
+    Product, Role, User,
 };
 use thaumiel_core::{Result, ThaumielError};
 
@@ -25,7 +28,8 @@ where
     &'static str: ColumnIndex<R>,
     String: Decode<'r, R::Database> + Type<R::Database>,
 {
-    row.try_get(col).map_err(|e| ThaumielError::Storage(format!("column '{col}': {e}")))
+    row.try_get(col)
+        .map_err(|e| ThaumielError::Storage(format!("column '{col}': {e}")))
 }
 
 fn get_opt_string<'r, R>(row: &'r R, col: &'static str) -> Result<Option<String>>
@@ -34,7 +38,8 @@ where
     &'static str: ColumnIndex<R>,
     String: Decode<'r, R::Database> + Type<R::Database>,
 {
-    row.try_get(col).map_err(|e| ThaumielError::Storage(format!("column '{col}': {e}")))
+    row.try_get(col)
+        .map_err(|e| ThaumielError::Storage(format!("column '{col}': {e}")))
 }
 
 fn get_i64<'r, R>(row: &'r R, col: &'static str) -> Result<i64>
@@ -43,11 +48,13 @@ where
     &'static str: ColumnIndex<R>,
     i64: Decode<'r, R::Database> + Type<R::Database>,
 {
-    row.try_get(col).map_err(|e| ThaumielError::Storage(format!("column '{col}': {e}")))
+    row.try_get(col)
+        .map_err(|e| ThaumielError::Storage(format!("column '{col}': {e}")))
 }
 
 fn parse_uuid(s: &str, field: &'static str) -> Result<Uuid> {
-    Uuid::parse_str(s).map_err(|e| ThaumielError::Storage(format!("invalid uuid in '{field}': {e}")))
+    Uuid::parse_str(s)
+        .map_err(|e| ThaumielError::Storage(format!("invalid uuid in '{field}': {e}")))
 }
 
 fn parse_dt(s: &str, field: &'static str) -> Result<DateTime<Utc>> {
@@ -64,7 +71,8 @@ fn parse_metadata(s: &str) -> Result<HashMap<String, String>> {
     if s.is_empty() {
         return Ok(HashMap::new());
     }
-    serde_json::from_str(s).map_err(|e| ThaumielError::Storage(format!("invalid metadata json: {e}")))
+    serde_json::from_str(s)
+        .map_err(|e| ThaumielError::Storage(format!("invalid metadata json: {e}")))
 }
 
 pub fn organization_from_row<'r, R>(row: &'r R) -> Result<Organization>
@@ -101,7 +109,9 @@ fn parse_status(s: &str) -> Result<LicenseStatus> {
         "suspended" => Ok(LicenseStatus::Suspended),
         "revoked" => Ok(LicenseStatus::Revoked),
         "expired" => Ok(LicenseStatus::Expired),
-        other => Err(ThaumielError::Storage(format!("invalid license status '{other}'"))),
+        other => Err(ThaumielError::Storage(format!(
+            "invalid license status '{other}'"
+        ))),
     }
 }
 
@@ -155,7 +165,9 @@ fn parse_scope(s: &str) -> Result<ApiKeyScope> {
         "admin" => Ok(ApiKeyScope::Admin),
         "license_manager" => Ok(ApiKeyScope::LicenseManager),
         "validate_only" => Ok(ApiKeyScope::ValidateOnly),
-        other => Err(ThaumielError::Storage(format!("invalid api key scope '{other}'"))),
+        other => Err(ThaumielError::Storage(format!(
+            "invalid api key scope '{other}'"
+        ))),
     }
 }
 
@@ -245,7 +257,8 @@ pub fn dt_str(dt: DateTime<Utc>) -> String {
 }
 
 pub fn metadata_json(meta: &HashMap<String, String>) -> Result<String> {
-    serde_json::to_string(meta).map_err(|e| ThaumielError::Storage(format!("failed to serialize metadata: {e}")))
+    serde_json::to_string(meta)
+        .map_err(|e| ThaumielError::Storage(format!("failed to serialize metadata: {e}")))
 }
 
 /// Small helper so backend modules can bubble up "row not found" consistently.

@@ -3,7 +3,9 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
 
 use thaumiel_core::ids::{ApiKeyId, LicenseId, OrganizationId, ProductId, UserId};
-use thaumiel_core::models::{Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User};
+use thaumiel_core::models::{
+    Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User,
+};
 use thaumiel_core::traits::{Pagination, Storage};
 use thaumiel_core::{Result, ThaumielError};
 
@@ -37,7 +39,10 @@ impl Storage for PostgresStorage {
     }
 
     async fn migrate(&self) -> Result<()> {
-        MIGRATOR.run(&self.pool).await.map_err(|e| ThaumielError::Storage(e.to_string()))
+        MIGRATOR
+            .run(&self.pool)
+            .await
+            .map_err(|e| ThaumielError::Storage(e.to_string()))
     }
 
     async fn create_organization(&self, org: Organization) -> Result<Organization> {
@@ -62,12 +67,13 @@ impl Storage for PostgresStorage {
     }
 
     async fn list_organizations(&self, page: Pagination) -> Result<Vec<Organization>> {
-        let rows = sqlx::query("SELECT * FROM organizations ORDER BY created_at DESC LIMIT $1 OFFSET $2")
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows =
+            sqlx::query("SELECT * FROM organizations ORDER BY created_at DESC LIMIT $1 OFFSET $2")
+                .bind(page.limit as i64)
+                .bind(page.offset as i64)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(sqlx_err)?;
         rows.iter().map(organization_from_row).collect()
     }
 
@@ -96,14 +102,20 @@ impl Storage for PostgresStorage {
         product_from_row(&row)
     }
 
-    async fn list_products(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<Product>> {
-        let rows = sqlx::query("SELECT * FROM products WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+    async fn list_products(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<Product>> {
+        let rows = sqlx::query(
+            "SELECT * FROM products WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(product_from_row).collect()
     }
 
@@ -149,7 +161,11 @@ impl Storage for PostgresStorage {
         license_from_row(&row)
     }
 
-    async fn list_licenses(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<LicenseKey>> {
+    async fn list_licenses(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<LicenseKey>> {
         let rows =
             sqlx::query("SELECT * FROM license_keys WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3")
                 .bind(uuid_str(org_id))
@@ -196,15 +212,21 @@ impl Storage for PostgresStorage {
     }
 
     async fn list_activations(&self, license_id: LicenseId) -> Result<Vec<Activation>> {
-        let rows = sqlx::query("SELECT * FROM activations WHERE license_id = $1 ORDER BY activated_at DESC")
-            .bind(uuid_str(license_id))
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows = sqlx::query(
+            "SELECT * FROM activations WHERE license_id = $1 ORDER BY activated_at DESC",
+        )
+        .bind(uuid_str(license_id))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(activation_from_row).collect()
     }
 
-    async fn delete_activation(&self, license_id: LicenseId, activation_id: thaumiel_core::ids::ActivationId) -> Result<()> {
+    async fn delete_activation(
+        &self,
+        license_id: LicenseId,
+        activation_id: thaumiel_core::ids::ActivationId,
+    ) -> Result<()> {
         sqlx::query("DELETE FROM activations WHERE id = $1 AND license_id = $2")
             .bind(uuid_str(activation_id))
             .bind(uuid_str(license_id))
@@ -245,13 +267,15 @@ impl Storage for PostgresStorage {
     }
 
     async fn list_api_keys(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<ApiKey>> {
-        let rows = sqlx::query("SELECT * FROM api_keys WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows = sqlx::query(
+            "SELECT * FROM api_keys WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(api_key_from_row).collect()
     }
 
@@ -326,13 +350,15 @@ impl Storage for PostgresStorage {
     }
 
     async fn list_users(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<User>> {
-        let rows = sqlx::query("SELECT * FROM users WHERE org_id = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+        let rows = sqlx::query(
+            "SELECT * FROM users WHERE org_id = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(user_from_row).collect()
     }
 
@@ -353,14 +379,20 @@ impl Storage for PostgresStorage {
         Ok(entry)
     }
 
-    async fn list_audit_log(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<AuditLogEntry>> {
-        let rows = sqlx::query("SELECT * FROM audit_log WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3")
-            .bind(uuid_str(org_id))
-            .bind(page.limit as i64)
-            .bind(page.offset as i64)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_err)?;
+    async fn list_audit_log(
+        &self,
+        org_id: OrganizationId,
+        page: Pagination,
+    ) -> Result<Vec<AuditLogEntry>> {
+        let rows = sqlx::query(
+            "SELECT * FROM audit_log WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(uuid_str(org_id))
+        .bind(page.limit as i64)
+        .bind(page.offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_err)?;
         rows.iter().map(audit_log_from_row).collect()
     }
 }
