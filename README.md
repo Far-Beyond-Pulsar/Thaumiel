@@ -4,11 +4,11 @@
 
 # Thaumiel: Hypermodular License Key Server
 
-<p align="center">
+<p align="left">
   <strong>A Rust license key server where storage, cache, auth, and key format are all plugins — not a fork</strong>
 </p>
 
-<p align="center">
+<p align="left">
   <a href="#whats-actually-in-here">Features</a> •
   <a href="#running-it">Quick Start</a> •
   <a href="#a-five-minute-walkthrough">Walkthrough</a> •
