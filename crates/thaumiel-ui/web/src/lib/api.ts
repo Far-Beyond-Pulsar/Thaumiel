@@ -8,7 +8,10 @@ import type {
   LicenseKey,
   Organization,
   Product,
+  Role,
   SessionResponse,
+  UsageSummary,
+  User,
   ValidateLicenseResponse,
 } from "./types";
 
@@ -63,6 +66,14 @@ export class ApiClient {
 
   me() {
     return this.request<Organization>("GET", "/v1/organizations/me");
+  }
+
+  listUsers() {
+    return this.request<User[]>("GET", "/v1/users");
+  }
+
+  createUser(email: string, password: string, role: Role) {
+    return this.request<User>("POST", "/v1/users", { email, password, role });
   }
 
   listProducts() {
@@ -134,5 +145,9 @@ export class ApiClient {
 
   keygenBackends() {
     return this.request<KeygenBackendInfo[]>("GET", "/v1/keygen-backends");
+  }
+
+  usage() {
+    return this.request<UsageSummary>("GET", "/v1/usage");
   }
 }

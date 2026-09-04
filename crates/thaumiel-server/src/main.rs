@@ -31,9 +31,14 @@ async fn main() -> anyhow::Result<()> {
     let ctx = PluginContext { storage: storage.clone(), cache: cache.clone() };
     let keygen = Arc::new(KeygenRegistry::from_inventory(&ctx));
     let auth_providers = Arc::new(AuthProviderRegistry::from_inventory(&ctx));
+    // Not in the inventory registry -- see AppState::saml's doc comment.
+    #[cfg(feature = "saml")]
+    let saml = Arc::new(thaumiel_auth::SamlAuthProvider::new(&ctx));
 
     tracing::info!(backends = ?keygen.ids(), "keygen backends registered");
     tracing::info!(providers = ?auth_providers.ids(), "auth providers registered");
+    #[cfg(not(feature = "saml"))]
+    tracing::info!("built without the 'saml' feature -- /v1/auth/login/saml/* routes are not mounted");
 
     let metrics_handle = if config.telemetry.metrics_enabled {
         Some(metrics_exporter_prometheus::PrometheusBuilder::new().install_recorder()?)
@@ -41,7 +46,15 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    let state = AppState { config: Arc::new(config.clone()), storage, cache, keygen, auth_providers };
+    let state = AppState {
+        config: Arc::new(config.clone()),
+        storage,
+        cache,
+        keygen,
+        auth_providers,
+        #[cfg(feature = "saml")]
+        saml,
+    };
     let mut app = routes::build_router(state);
     if let Some(handle) = metrics_handle {
         app = app.route("/metrics", axum::routing::get(move || async move { handle.render() }));
@@ -60,6 +73,7 @@ async fn build_storage(config: &AppConfig) -> anyhow::Result<Arc<dyn Storage>> {
     Ok(match db.backend {
         DatabaseBackend::Postgres => Arc::new(thaumiel_storage::PostgresStorage::connect(&db.url, db.max_connections).await?),
         DatabaseBackend::Mysql => Arc::new(thaumiel_storage::MySqlStorage::connect(&db.url, db.max_connections).await?),
+        DatabaseBackend::Mssql => Arc::new(thaumiel_storage::MssqlStorage::connect(&db.url, db.max_connections).await?),
         DatabaseBackend::Sqlite => Arc::new(thaumiel_storage::SqliteStorage::connect(&db.url, db.max_connections).await?),
         DatabaseBackend::Memory => Arc::new(thaumiel_storage::InMemoryStorage::new()),
     })

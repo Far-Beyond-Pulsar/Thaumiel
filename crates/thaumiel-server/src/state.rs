@@ -11,4 +11,11 @@ pub struct AppState {
     pub cache: Arc<dyn Cache>,
     pub keygen: Arc<KeygenRegistry>,
     pub auth_providers: Arc<AuthProviderRegistry>,
+    /// Not part of `auth_providers` -- SAML's redirect-based flow doesn't
+    /// fit the generic `AuthProvider`/`Credentials` shape those go through.
+    /// See `thaumiel_auth::saml`'s module doc comment. Only present when
+    /// built with `--features saml` (off by default; needs system libraries
+    /// not every build environment has -- see docs/CONFIGURATION.md).
+    #[cfg(feature = "saml")]
+    pub saml: Arc<thaumiel_auth::SamlAuthProvider>,
 }

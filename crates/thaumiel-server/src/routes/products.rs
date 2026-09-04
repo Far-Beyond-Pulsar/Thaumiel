@@ -1,16 +1,16 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use chrono::Utc;
 
 use thaumiel_core::ids::ProductId;
 use thaumiel_core::models::Product;
-use thaumiel_core::traits::Pagination;
 use thaumiel_core::ThaumielError;
 
 use crate::audit;
 use crate::dto::CreateProductRequest;
 use crate::error::ApiResult;
 use crate::extractors::AdminAuth;
+use crate::pagination::PageQuery;
 use crate::state::AppState;
 
 pub async fn create(
@@ -35,8 +35,12 @@ pub async fn create(
     Ok(Json(product))
 }
 
-pub async fn list(State(state): State<AppState>, AdminAuth(identity): AdminAuth) -> ApiResult<Json<Vec<Product>>> {
-    let products = state.storage.list_products(identity.org_id, Pagination::default()).await?;
+pub async fn list(
+    State(state): State<AppState>,
+    AdminAuth(identity): AdminAuth,
+    Query(page): Query<PageQuery>,
+) -> ApiResult<Json<Vec<Product>>> {
+    let products = state.storage.list_products(identity.org_id, page.into()).await?;
     Ok(Json(products))
 }
 

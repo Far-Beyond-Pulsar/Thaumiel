@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::error::Result;
-use crate::ids::{ApiKeyId, LicenseId, OrganizationId, ProductId, UserId};
+use crate::ids::{ActivationId, ApiKeyId, LicenseId, OrganizationId, ProductId, UserId};
 use crate::models::{
     Activation, ApiKey, AuditLogEntry, LicenseKey, LicenseStatus, Organization, Product, User,
 };
@@ -56,6 +56,10 @@ pub trait Storage: Send + Sync {
     async fn create_activation(&self, activation: Activation) -> Result<Activation>;
     async fn count_activations(&self, license_id: LicenseId) -> Result<u32>;
     async fn list_activations(&self, license_id: LicenseId) -> Result<Vec<Activation>>;
+    /// Frees a seat without revoking the whole license. `license_id` is
+    /// required (not just `activation_id`) so a caller can't free a seat on
+    /// a license outside whatever org-ownership check they've already done.
+    async fn delete_activation(&self, license_id: LicenseId, activation_id: ActivationId) -> Result<()>;
 
     // -- api keys --------------------------------------------------------------
     async fn create_api_key(&self, key: ApiKey) -> Result<ApiKey>;
@@ -70,6 +74,7 @@ pub trait Storage: Send + Sync {
     async fn create_user(&self, user: User) -> Result<User>;
     async fn get_user_by_email(&self, org_id: OrganizationId, email: &str) -> Result<User>;
     async fn get_user(&self, id: UserId) -> Result<User>;
+    async fn list_users(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<User>>;
 
     // -- audit log -----------------------------------------------------------------
     async fn append_audit_log(&self, entry: AuditLogEntry) -> Result<AuditLogEntry>;

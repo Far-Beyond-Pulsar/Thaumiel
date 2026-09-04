@@ -6,15 +6,15 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
 
 ## What's actually in here
 
-- **Storage**: PostgreSQL, MySQL/MariaDB, SQLite, and an in-memory backend for tests, all implementing the same `Storage` trait, all runnable side by side.
+- **Storage**: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, and an in-memory backend for tests, all implementing the same `Storage` trait, all runnable side by side.
 - **Cache**: Redis or a process-local in-memory cache. Used for rate limiting and readiness checks today; the trait is small enough to extend.
-- **Auth**: Argon2id password hashing, JWT admin sessions, and hashed API keys for machine callers — plus an `AuthProvider` trait so OIDC/SAML/LDAP can slot in later without touching route handlers.
+- **Auth**: Argon2id password hashing, JWT admin sessions, hashed API keys for machine callers, LDAP/Active Directory login, and OIDC token verification — all through one `AuthProvider` trait, so SAML can slot in later the same way without touching route handlers.
 - **License key generation**: three built-in backends —
   - `ed25519` — signed, offline-verifiable keys. A licensed application can check one without calling home.
   - `hmac` — human-typable `HM-XXXX-XXXX-...` keys with an embedded checksum, the format most people picture when they hear "license key."
   - `opaque` — a plain random token, validated purely by database lookup. The simplest possible option, and the default.
 - **Everything above is a compile-time plugin.** No dynamic loading, no unsafe ABI, no runtime crashes from a mismatched plugin build — just a Rust trait implementation that self-registers when its crate is linked in. See [`docs/PLUGINS.md`](docs/PLUGINS.md).
-- Seat-limited activations, an audit log, Prometheus metrics at `/metrics`, structured tracing, and a config system layered from file to environment variables.
+- Seat-limited activations (with a dedicated endpoint to free one without revoking the whole license), an audit log, per-org usage metering (`GET /v1/usage`), Prometheus metrics at `/metrics`, structured tracing, and a config system layered from file to environment variables.
 - **A web dashboard** (`thaumiel-ui`) — a Next.js admin UI, statically exported and embedded into its own standalone Rust binary. One executable, no Node runtime required to run it, points at any Thaumiel API via config. See [`crates/thaumiel-ui/README.md`](crates/thaumiel-ui/README.md).
 
 ## Architecture
@@ -25,7 +25,7 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
 crates/
   thaumiel-core/      domain types, error type, plugin traits, the registry itself
   thaumiel-config/     layered TOML + env configuration
-  thaumiel-storage/    Storage impls: postgres, mysql, sqlite, memory
+  thaumiel-storage/    Storage impls: postgres, mysql, mssql, sqlite, memory
   thaumiel-cache/      Cache impls: redis, memory
   thaumiel-auth/       Argon2id passwords, JWT sessions, API keys, InternalAuthProvider
   thaumiel-keygen/     Ed25519, HMAC, and opaque keygen backends
@@ -54,13 +54,13 @@ curl http://localhost:8080/v1/keygen-backends
 
 ### The full stack
 
-To exercise Postgres, MySQL, and Redis instead of the defaults:
+To exercise Postgres, MySQL, SQL Server, and Redis instead of the defaults:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-That brings up all three databases plus Redis and a server pointed at Postgres. MySQL stays reachable on its normal port the whole time too, if you want to point a local run at it directly (`THAUMIEL_DATABASE__BACKEND=mysql THAUMIEL_DATABASE__URL=mysql://thaumiel:thaumiel@localhost:3306/thaumiel cargo run -p thaumiel-server`).
+That brings up all four databases plus Redis and a server pointed at Postgres. The other two stay reachable on their normal ports the whole time too, if you want to point a local run at either directly, e.g. `THAUMIEL_DATABASE__BACKEND=mysql THAUMIEL_DATABASE__URL=mysql://thaumiel:thaumiel@localhost:3306/thaumiel cargo run -p thaumiel-server`.
 
 ### The dashboard
 

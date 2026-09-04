@@ -203,6 +203,16 @@ impl Storage for MySqlStorage {
         rows.iter().map(activation_from_row).collect()
     }
 
+    async fn delete_activation(&self, license_id: LicenseId, activation_id: thaumiel_core::ids::ActivationId) -> Result<()> {
+        sqlx::query("DELETE FROM activations WHERE id = ? AND license_id = ?")
+            .bind(uuid_str(activation_id))
+            .bind(uuid_str(license_id))
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        Ok(())
+    }
+
     async fn create_api_key(&self, key: ApiKey) -> Result<ApiKey> {
         sqlx::query(
             "INSERT INTO api_keys (id, org_id, name, key_hash, key_prefix, scope, created_at, last_used_at, revoked_at) \
@@ -312,6 +322,17 @@ impl Storage for MySqlStorage {
             .map_err(sqlx_err)?
             .ok_or_else(|| not_found("user", id))?;
         user_from_row(&row)
+    }
+
+    async fn list_users(&self, org_id: OrganizationId, page: Pagination) -> Result<Vec<User>> {
+        let rows = sqlx::query("SELECT * FROM users WHERE org_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?")
+            .bind(uuid_str(org_id))
+            .bind(page.limit as i64)
+            .bind(page.offset as i64)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_err)?;
+        rows.iter().map(user_from_row).collect()
     }
 
     async fn append_audit_log(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {

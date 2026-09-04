@@ -15,8 +15,31 @@ serde.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 rand.workspace = true
+tokio.workspace = true
 
 argon2 = "0.5"
 jsonwebtoken = "9"
 sha2 = "0.10"
 hex = "0.4"
+
+# `default-features = false` drops ldap3's blocking/"sync" API, which this
+# crate has no use for -- only the async one.
+ldap3 = { version = "0.12", default-features = false, features = ["tls-native"] }
+
+# OIDC discovery (fetching the issuer's .well-known/openid-configuration and
+# JWKS) needs an async HTTP client; openidconnect 4.x takes a caller-supplied
+# one rather than bundling a specific choice.
+openidconnect = "4"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# Real XML-DSig verification of incoming SAML responses via samael's "xmlsec"
+# feature (on by default), which binds to the xmlsec1 C library -- requires
+# libxml2/xmlsec1/libxslt/libclang/pkg-config as system libraries to build,
+# which is why (unlike every other backend in this workspace) `saml` is an
+# *opt-in* feature, off by default. See crates/thaumiel-auth/README.md and
+# docs/CONFIGURATION.md.
+samael = { version = "0.0.22", optional = true }
+
+[features]
+default = []
+saml = ["dep:samael"]

@@ -40,3 +40,10 @@ metrics-exporter-prometheus = "0.15"
 [dev-dependencies]
 tower = { version = "0.4", features = ["util"] }
 http-body-util = "0.1"
+
+[features]
+default = []
+# Off by default -- see thaumiel-auth's `saml` feature doc comment for why
+# (needs libxml2/xmlsec1 as system libraries). Enable with `--features saml`
+# once those are installed; see docs/CONFIGURATION.md.
+saml = ["thaumiel-auth/saml"]

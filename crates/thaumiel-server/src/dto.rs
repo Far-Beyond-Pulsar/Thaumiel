@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use thaumiel_core::ids::ProductId;
-use thaumiel_core::models::{ApiKey, ApiKeyScope};
+use thaumiel_core::models::{ApiKey, ApiKeyScope, Role};
 use thaumiel_core::traits::Identity;
 
 #[derive(Debug, Deserialize)]
@@ -26,10 +26,28 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct OidcLoginRequest {
+    pub org_id: thaumiel_core::ids::OrganizationId,
+    /// Already obtained by the caller talking to the identity provider
+    /// directly -- see `thaumiel_auth::oidc`'s module doc comment.
+    pub id_token: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SessionResponse {
     pub token: String,
     pub identity: Identity,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateUserRequest {
+    pub email: String,
+    /// A temporary password the admin sets directly and shares with the new
+    /// user out of band -- there's no invite-email flow yet (issue #8 in the
+    /// repo's tracker covers that as a possible follow-up).
+    pub password: String,
+    pub role: Role,
 }
 
 #[derive(Debug, Deserialize)]
@@ -91,6 +109,19 @@ pub struct CreateApiKeyResponse {
     pub plaintext: String,
     #[serde(flatten)]
     pub record: ApiKey,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UsageSummary {
+    pub products: u32,
+    pub licenses_total: u32,
+    pub licenses_active: u32,
+    pub api_keys_active: u32,
+    /// Exact only up to 200 (the max page size -- see docs/CONFIGURATION.md);
+    /// beyond that this undercounts. Use the paginated list endpoints
+    /// (`?limit=&offset=`) for an exact total on a larger organization.
+    pub counts_capped_at: u32,
+    pub validate_calls_last_14_days: Vec<crate::usage::UsageDayCount>,
 }
 
 #[derive(Debug, Serialize)]

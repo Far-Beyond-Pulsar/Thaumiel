@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Storage backends (PostgreSQL, MySQL, SQLite, in-memory) for Thaumiel."
+description = "Storage backends (PostgreSQL, MySQL, SQL Server, SQLite, in-memory) for Thaumiel."
 
 [dependencies]
 thaumiel-core.workspace = true
@@ -21,9 +21,20 @@ sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio-rustls", "macros", "migrate",
 ], optional = true }
 
+# sqlx has no MSSQL driver at all -- `tiberius` is the Rust ecosystem's actual
+# T-SQL client, with its own `Row`/connection types unrelated to sqlx's, which
+# is why mssql.rs can't share mapping.rs's generic row-mapping functions the
+# way postgres/mysql/sqlite do. `bb8`/`bb8-tiberius` supply the connection
+# pool sqlx otherwise gives the other three backends for free.
+tiberius = { version = "0.12", default-features = false, features = ["tds73", "rustls"], optional = true }
+bb8 = { version = "0.9", optional = true }
+bb8-tiberius = { version = "0.16", default-features = false, features = ["with-tokio"], optional = true }
+tokio-util = { version = "0.7", features = ["compat"], optional = true }
+
 [features]
-default = ["postgres", "mysql", "sqlite", "memory"]
+default = ["postgres", "mysql", "sqlite", "mssql", "memory"]
 postgres = ["dep:sqlx", "sqlx/postgres"]
 mysql = ["dep:sqlx", "sqlx/mysql"]
 sqlite = ["dep:sqlx", "sqlx/sqlite"]
+mssql = ["dep:tiberius", "dep:bb8", "dep:bb8-tiberius", "dep:tokio-util"]
 memory = []
