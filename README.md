@@ -1,5 +1,7 @@
 # Thaumiel
 
+<img width="250" height="250" alt="colorkit" src="https://github.com/user-attachments/assets/877182b7-98e1-4ef0-8ced-b8316e15c311" />
+
 A license key server, written in Rust, built around one idea: almost nothing about how you issue and check licenses should be hardcoded. Which database you use, which key format your product ships with, how your admins log in — all of that is a plugin choice, not a fork.
 
 Thaumiel exposes an HTTP API for managing organizations, products, license keys, and API keys, backed by whichever storage and cache you configure, authenticating admins through JWT sessions and machine clients through hashed API keys, and generating keys through one of several interchangeable backends. Three ship out of the box. Writing a fourth takes one file and a macro call, not a patch to core.
