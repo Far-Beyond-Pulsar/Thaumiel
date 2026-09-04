@@ -16,7 +16,7 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
 - **Everything above is a compile-time plugin.** No dynamic loading, no unsafe ABI, no runtime crashes from a mismatched plugin build — just a Rust trait implementation that self-registers when its crate is linked in. See [`docs/PLUGINS.md`](docs/PLUGINS.md).
 - Seat-limited activations, an audit log, Prometheus metrics at `/metrics`, structured tracing, and a config system layered from file to environment variables.
 
-## Architecture, in one paragraph
+## Architecture
 
 `thaumiel-core` defines the domain types and the traits everything else implements — it has no idea what a database or an HTTP request even is. `thaumiel-storage`, `thaumiel-cache`, `thaumiel-auth`, and `thaumiel-keygen` each provide concrete implementations of those traits, registering themselves via a small `inventory`-based macro so `thaumiel-server` can discover whatever got linked in at startup, without a central list anywhere. `thaumiel-server` is the thin layer that turns all of that into an axum HTTP API. Full breakdown, including why it's built this way, in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
