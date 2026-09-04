@@ -1,0 +1,78 @@
+# Brings up all three real SQL backends plus Redis so every backend claimed
+# in docs/ARCHITECTURE.md can actually be exercised locally, not just SQLite.
+# The `server` service runs against postgres+redis by default; swap
+# THAUMIEL_DATABASE__BACKEND / THAUMIEL_DATABASE__URL to point it at `mysql`
+# instead (both are always running, so no compose profile juggling needed).
+#
+#   docker compose -f docker/docker-compose.yml up --build
+#
+# Then: curl http://localhost:8080/health
+
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: thaumiel
+      POSTGRES_PASSWORD: thaumiel
+      POSTGRES_DB: thaumiel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaumiel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_USER: thaumiel
+      MYSQL_PASSWORD: thaumiel
+      MYSQL_ROOT_PASSWORD: thaumiel_root
+      MYSQL_DATABASE: thaumiel
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -pthaumiel_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      THAUMIEL_ENV: docker
+      # Override the checked-in dev secret -- required, no default in prod-like envs.
+      THAUMIEL_AUTH__JWT_SECRET: "change-me-to-something-random"
+      # Stable keys so ed25519/hmac-issued license keys survive a container restart.
+      THAUMIEL_KEYGEN_ED25519_SECRET: "0000000000000000000000000000000000000000000000000000000000aa"
+      THAUMIEL_KEYGEN_HMAC_SECRET: "00000000000000000000000000000000000000000000000000000000bbbb"
+
+volumes:
+  postgres-data:
+  mysql-data:

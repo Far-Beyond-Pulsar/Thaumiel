@@ -15,6 +15,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
+use crate::metrics_mw;
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
@@ -38,6 +39,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health::health))
         .route("/ready", get(health::ready))
         .nest("/v1", v1)
+        // `route_layer` (not `layer`): only runs for requests that matched a
+        // route, and is what guarantees the `MatchedPath` extension
+        // `metrics_mw::track` reads is actually populated.
+        .route_layer(axum::middleware::from_fn(metrics_mw::track))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(CompressionLayer::new())

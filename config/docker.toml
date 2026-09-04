@@ -1,0 +1,18 @@
+# Layered on top of default.toml when THAUMIEL_ENV=docker (see
+# docker/docker-compose.yml). Points at the other compose services by their
+# service name instead of localhost. Not secret -- the actual jwt secret is
+# still supplied via THAUMIEL_AUTH__JWT_SECRET in docker-compose.yml.
+
+[database]
+backend = "postgres"
+url = "postgres://thaumiel:thaumiel@postgres:5432/thaumiel"
+
+[cache]
+backend = "redis"
+redis_url = "redis://redis:6379"
+
+[keygen]
+default_backend = "ed25519"
+
+[telemetry]
+json = true
