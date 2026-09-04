@@ -67,8 +67,9 @@ async fn full_lifecycle() {
         .oneshot(json_request("POST", "/v1/products", Some(&token), json!({ "name": "Widget Pro" })))
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "product creation should succeed");
+    let status = res.status();
     let product = body_json(res).await;
+    assert_eq!(status, StatusCode::OK, "product creation should succeed: {product:?}");
     let product_id = product["id"].as_str().unwrap().to_string();
     assert_eq!(product["default_keygen_backend"], "opaque");
 
