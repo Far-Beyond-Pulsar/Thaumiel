@@ -75,6 +75,31 @@ Also read directly from the process environment.
 
 Same JIT-provisioning behavior as LDAP: a matching `User` row (role `member`) is created automatically on first successful verification if one doesn't already exist for the token's email within the org given in the request. There's no client secret, no authorization-code exchange, and no redirect handling here -- the caller (a browser doing its own OIDC flow, a CLI that already has a token) hands Thaumiel an `id_token` it already obtained, and this only verifies it.
 
+## SAML (cargo feature `saml`, **off by default** -- see below)
+
+Reachable via three dedicated routes: `GET /v1/auth/login/saml/metadata`, `GET /v1/auth/login/saml/start?org_id=`, `POST /v1/auth/login/saml/acs` -- not gated by `auth.provider`, same reasoning as OIDC. See docs/API.md.
+
+| Env var | Default | |
+|---|---|---|
+| `THAUMIEL_SAML_SP_ENTITY_ID` | *(empty)* | This server's SAML entity id -- typically its own metadata URL. |
+| `THAUMIEL_SAML_ACS_URL` | *(empty)* | This server's public `.../v1/auth/login/saml/acs` URL -- what the IdP is told to POST responses back to. Must be reachable from wherever the IdP redirects the browser, so usually your real public hostname, not `localhost`. |
+| `THAUMIEL_SAML_IDP_METADATA_URL` | *(empty)* | Fetched once, cached thereafter. Set this *or* `_PATH`, not both. |
+| `THAUMIEL_SAML_IDP_METADATA_PATH` | *(empty)* | A local file path to a static IdP metadata XML document, for IdPs that hand you a file rather than exposing a live metadata endpoint. |
+
+Any of the required three unset -> every SAML route fails with a clear `config` error, logged as a warning at startup, same pattern as LDAP/OIDC.
+
+### Why this one is a feature flag, and off by default
+
+Every other backend in this workspace builds with nothing but `cargo build`. SAML doesn't fit that: the only Rust SAML crate (`samael`) verifies XML signatures via `xmlsec1`, a C library, so building with `saml` enabled needs `libxml2-dev`, `libxmlsec1-dev`, `libxslt1-dev`, `libclang-dev`, and `pkg-config` installed as system packages first:
+
+```bash
+# Debian/Ubuntu (and this is exactly what docker/Dockerfile installs)
+sudo apt install libxml2-dev libxmlsec1-dev libxslt1-dev libclang-dev pkg-config
+cargo build -p thaumiel-server --features saml
+```
+
+On Windows, these aren't a one-line install -- if you're on Windows without WSL, build inside a Linux environment (WSL2, or the project's own `docker/Dockerfile`, which builds with `saml` enabled by default) rather than fighting native library installation directly. The default `cargo build` (no `--features saml`) needs none of this and is unaffected either way.
+
 ## `[telemetry]`
 
 | Key | Env var | Default | |

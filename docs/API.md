@@ -67,6 +67,16 @@ A separate route, not an alternate branch of `/v1/auth/login` -- always routes t
 
 `401` on a token that fails signature/issuer/audience/expiry verification. `THAUMIEL_OIDC_ISSUER_URL`/`THAUMIEL_OIDC_CLIENT_ID` unset -> every call fails (logged as a warning at startup, same pattern as the LDAP provider) -- see docs/CONFIGURATION.md.
 
+### SAML (cargo feature `saml`, off by default -- see docs/CONFIGURATION.md)
+
+Three routes, none accepting the shapes above -- SAML's redirect-based flow doesn't fit a single JSON POST:
+
+- **`GET /v1/auth/login/saml/metadata`** -- this server's own SP metadata XML (`application/samlmetadata+xml`). Point your IdP's SP configuration at this URL (or paste its contents in, depending on the IdP).
+- **`GET /v1/auth/login/saml/start?org_id=...`** -- redirects the browser to the IdP to begin login, carrying `org_id` through the round trip as SAML's `RelayState`.
+- **`POST /v1/auth/login/saml/acs`** -- the IdP POSTs here (`application/x-www-form-urlencoded`, fields `SAMLResponse` and `RelayState`) after a successful login. Verifies the response's XML signature for real (via `samael`'s `xmlsec1` binding, not a stub) and, on success, returns `{ "token": "...", "identity": {...} }` as JSON directly -- **there is no browser-facing callback page** built for this; a real deployment needs a thin page in front of this route to hand the token to a UI. `401` on any verification failure (bad signature, expired assertion, wrong recipient, etc.).
+
+Email is taken from an explicit email-shaped assertion attribute if the IdP sends one, falling back to `NameID` (common when the IdP is configured with `EmailAddressNameIDFormat`). Same JIT-provisioning as LDAP/OIDC. **Known simplification**: SP-initiated requests aren't tracked by ID, so `InResponseTo` replay protection isn't enforced -- `NotOnOrAfter`/`Recipient` checks (which `samael` always enforces) still bound a captured assertion's usable window and destination.
+
 ## Organizations
 
 ### `GET /v1/organizations/me`

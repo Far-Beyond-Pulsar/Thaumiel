@@ -1,6 +1,24 @@
-# Thaumiel
+<div align="right">
+<img align="right" src="https://github.com/user-attachments/assets/877182b7-98e1-4ef0-8ced-b8316e15c311" alt="Thaumiel Logo" width="200"/>
+</div>
 
-<img width="250" height="250" alt="colorkit" src="https://github.com/user-attachments/assets/877182b7-98e1-4ef0-8ced-b8316e15c311" />
+# Thaumiel: Hypermodular License Key Server
+
+<p align="center">
+  <strong>A Rust license key server where storage, cache, auth, and key format are all plugins — not a fork</strong>
+</p>
+
+<p align="center">
+  <a href="#whats-actually-in-here">Features</a> •
+  <a href="#running-it">Quick Start</a> •
+  <a href="#a-five-minute-walkthrough">Walkthrough</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="docs/API.md">API</a> •
+  <a href="#configuring-it">Configuration</a> •
+  <a href="#writing-a-plugin">Plugins</a> •
+  <a href="#testing">Testing</a> •
+  <a href="#license">License</a>
+</p>
 
 A license key server, written in Rust, built around one idea: almost nothing about how you issue and check licenses should be hardcoded. Which database you use, which key format your product ships with, how your admins log in — all of that is a plugin choice, not a fork.
 
@@ -10,7 +28,7 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
 
 - **Storage**: PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, and an in-memory backend for tests, all implementing the same `Storage` trait, all runnable side by side.
 - **Cache**: Redis or a process-local in-memory cache. Used for rate limiting and readiness checks today; the trait is small enough to extend.
-- **Auth**: Argon2id password hashing, JWT admin sessions, hashed API keys for machine callers, LDAP/Active Directory login, and OIDC token verification — all through one `AuthProvider` trait, so SAML can slot in later the same way without touching route handlers.
+- **Auth**: Argon2id password hashing, JWT admin sessions, hashed API keys for machine callers, LDAP/Active Directory login, OIDC token verification, and SAML 2.0 SSO (real XML-DSig signature verification, not a stub — cargo feature `saml`, off by default since it needs native `libxml2`/`xmlsec1`; on by default in the Docker image). See `docs/CONFIGURATION.md`.
 - **License key generation**: three built-in backends —
   - `ed25519` — signed, offline-verifiable keys. A licensed application can check one without calling home.
   - `hmac` — human-typable `HM-XXXX-XXXX-...` keys with an embedded checksum, the format most people picture when they hear "license key."
@@ -140,7 +158,7 @@ Add the crate as a dependency of `thaumiel-server`, and it shows up in `GET /v1/
 cargo test --workspace
 ```
 
-runs unit tests for password hashing, JWT round-trips, API key generation, and all three keygen backends, plus one end-to-end integration test that drives the full HTTP API — register, login, create a product, generate a license, mint an API key, validate — against `InMemoryStorage`, no external services required. `cargo clippy --workspace --all-targets` is clean.
+runs unit tests for password hashing, JWT round-trips, API key generation, and all built-in keygen backends, plus a handful of end-to-end integration tests that drive the full HTTP API — registration, license-manager API keys, pagination, team invites, usage metering — against `InMemoryStorage`, no external services required. `cargo clippy --workspace --all-targets` is clean. `--features saml` needs `libxml2`/`xmlsec1` installed first (see `docs/CONFIGURATION.md`) and isn't part of the default `cargo test --workspace` run.
 
 ## License
 

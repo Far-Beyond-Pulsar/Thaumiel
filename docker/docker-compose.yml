@@ -89,6 +89,12 @@ services:
       # Stable keys so ed25519/hmac-issued license keys survive a container restart.
       THAUMIEL_KEYGEN_ED25519_SECRET: "0000000000000000000000000000000000000000000000000000000000aa"
       THAUMIEL_KEYGEN_HMAC_SECRET: "00000000000000000000000000000000000000000000000000000000bbbb"
+      # SAML is built into this image (see docker/Dockerfile) but unconfigured
+      # by default -- uncomment and point at a real IdP to use
+      # /v1/auth/login/saml/*; see docs/CONFIGURATION.md.
+      # THAUMIEL_SAML_SP_ENTITY_ID: "https://your-thaumiel-host/v1/auth/login/saml/metadata"
+      # THAUMIEL_SAML_ACS_URL: "https://your-thaumiel-host/v1/auth/login/saml/acs"
+      # THAUMIEL_SAML_IDP_METADATA_URL: "https://your-idp/metadata"
 
 volumes:
   postgres-data:
