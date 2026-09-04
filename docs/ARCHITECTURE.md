@@ -18,7 +18,10 @@ thaumiel-cache    <- depends on core
 thaumiel-auth     <- depends on core
 thaumiel-keygen   <- depends on core
 thaumiel-server   <- depends on all of the above; the only crate that knows HTTP exists
+thaumiel-ui       <- standalone; depends on none of the above
 ```
+
+`thaumiel-ui` (the admin dashboard) is deliberately off to the side rather than a dependent of `thaumiel-server`. It's a separate binary, with its own config, meant to be deployable on its own — potentially against a Thaumiel API it doesn't share a network, filesystem, or even a version with. It talks to that API exclusively over HTTP, the same way any other client would; nothing in `thaumiel-core`'s traits or `thaumiel-server`'s route handlers has any awareness that a UI exists. See [`crates/thaumiel-ui/README.md`](../crates/thaumiel-ui/README.md) for how a Next.js static export ends up embedded in and served by that binary.
 
 No crate below `thaumiel-server` depends on any of its siblings. `thaumiel-storage` doesn't know `thaumiel-cache` exists, and neither knows `thaumiel-auth` exists. This is deliberate and it's checked by the compiler, not by convention: if a keygen backend ever needed direct database access, that would have to be modeled as a capability core hands it, not a new inter-crate dependency. It hasn't needed to be so far — see [Why keygen backends don't touch storage](#why-keygen-backends-dont-touch-storage) below.
 

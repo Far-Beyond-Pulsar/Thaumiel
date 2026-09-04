@@ -15,6 +15,7 @@ Thaumiel exposes an HTTP API for managing organizations, products, license keys,
   - `opaque` — a plain random token, validated purely by database lookup. The simplest possible option, and the default.
 - **Everything above is a compile-time plugin.** No dynamic loading, no unsafe ABI, no runtime crashes from a mismatched plugin build — just a Rust trait implementation that self-registers when its crate is linked in. See [`docs/PLUGINS.md`](docs/PLUGINS.md).
 - Seat-limited activations, an audit log, Prometheus metrics at `/metrics`, structured tracing, and a config system layered from file to environment variables.
+- **A web dashboard** (`thaumiel-ui`) — a Next.js admin UI, statically exported and embedded into its own standalone Rust binary. One executable, no Node runtime required to run it, points at any Thaumiel API via config. See [`crates/thaumiel-ui/README.md`](crates/thaumiel-ui/README.md).
 
 ## Architecture
 
@@ -29,6 +30,7 @@ crates/
   thaumiel-auth/       Argon2id passwords, JWT sessions, API keys, InternalAuthProvider
   thaumiel-keygen/     Ed25519, HMAC, and opaque keygen backends
   thaumiel-server/     axum app: routes, middleware, main.rs
+  thaumiel-ui/         admin dashboard: Next.js static export embedded in its own Rust binary
 migrations/            per-backend SQL, one folder per dialect
 config/                default.toml, docker.toml, an example production file
 docker/                Dockerfile + a compose stack with all three databases and Redis
@@ -59,6 +61,14 @@ docker compose -f docker/docker-compose.yml up --build
 ```
 
 That brings up all three databases plus Redis and a server pointed at Postgres. MySQL stays reachable on its normal port the whole time too, if you want to point a local run at it directly (`THAUMIEL_DATABASE__BACKEND=mysql THAUMIEL_DATABASE__URL=mysql://thaumiel:thaumiel@localhost:3306/thaumiel cargo run -p thaumiel-server`).
+
+### The dashboard
+
+```bash
+cargo run -p thaumiel-ui
+```
+
+builds the Next.js frontend the first time (needs Node on the machine building it, not the one running the resulting binary — see [`crates/thaumiel-ui/README.md`](crates/thaumiel-ui/README.md)) and serves it on `:4200`, pointed at `http://localhost:8080` by default. Open it, register an organization, and the rest — products, licenses, API keys, the audit log — is click-through from there.
 
 ## A five-minute walkthrough
 

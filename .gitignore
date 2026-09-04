@@ -25,3 +25,11 @@ target/
 config/production.toml
 config/*.local.toml
 .env
+
+# thaumiel-ui: the Next.js app is built by crates/thaumiel-ui/build.rs and
+# embedded into the binary -- none of its build output or dependencies belong
+# in source control.
+crates/thaumiel-ui/web/node_modules/
+crates/thaumiel-ui/web/.next/
+crates/thaumiel-ui/web/out/
+crates/thaumiel-ui/web/next-env.d.ts

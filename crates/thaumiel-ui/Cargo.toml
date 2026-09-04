@@ -1,0 +1,27 @@
+[package]
+name = "thaumiel-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Thaumiel's admin dashboard: a Next.js static export embedded in and served by a standalone Rust binary."
+build = "build.rs"
+
+[[bin]]
+name = "thaumiel-ui"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+axum = "0.7"
+tower-http = { version = "0.5", features = ["trace", "compression-gzip"] }
+rust-embed = { version = "8", features = ["mime-guess"] }
+figment = { version = "0.10", features = ["toml", "env"] }

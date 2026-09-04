@@ -29,6 +29,10 @@ A few things the codebase deliberately leaves to the deployer rather than assumi
 - **Migrations run automatically at startup** (`Storage::migrate()`, in `main.rs`, before the server starts accepting connections). Fine for a single instance; if you run several replicas that all start at once against the same database, make sure your deploy process doesn't race multiple migration runs against each other — the simplest fix is a single init/migration step ahead of the actual rollout, common in most container orchestrators.
 - **CORS is wide open by default** (`CorsLayer::permissive()` in `routes/mod.rs`). Fine for local development and for API-only backends sitting behind their own gateway; tighten it in `thaumiel-server/src/routes/mod.rs` if browsers are going to call this API directly from a specific origin.
 
+## The dashboard
+
+`thaumiel-ui` is a second, independent binary and deployment unit — build and run it separately from `thaumiel-server` (its own `docker build`, its own process, its own port, `:4200` by default). Point it at your API with `THAUMIEL_UI_API__BASE_URL` (see [`crates/thaumiel-ui/README.md`](../crates/thaumiel-ui/README.md)); nothing about deploying it requires the two to share a host. Same TLS caveat as the API: it speaks plain HTTP and expects a reverse proxy in front of it in anything but local development.
+
 ## Observability in production
 
 Point a Prometheus scraper at `GET /metrics`; point your load balancer's readiness probe at `GET /ready`, not `/health` — the difference matters exactly at the moment a deploy rolls out and the process is up but its database connection isn't ready yet. Set `telemetry.json = true` for any log aggregator that expects structured lines rather than the human-readable default.

@@ -1,0 +1,16 @@
+# thaumiel-ui default configuration -- embedded into the binary at compile
+# time (src/config.rs), not read from this path at runtime. Editing this file
+# and rebuilding changes the binary's baseline; it is not something you also
+# need to ship alongside the executable. Runtime overrides layer on top from
+# an optional config/<THAUMIEL_UI_ENV>.toml on disk (THAUMIEL_UI_ENV defaults
+# to "development") and then THAUMIEL_UI_* environment variables.
+
+[server]
+bind = "0.0.0.0"
+port = 4200
+
+[api]
+# The API this dashboard talks to. Known-good default: a thaumiel-server
+# running locally with its own defaults. Override with THAUMIEL_UI_API__BASE_URL
+# (or a config/<env>.toml) to point at anything else.
+base_url = "http://localhost:8080"
